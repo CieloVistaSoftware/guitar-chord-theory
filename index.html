@@ -1,0 +1,242 @@
+<!DOCTYPE html>
+<html lang="en" data-theme="dark">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Guitar Chord Theory — Intervals in C</title>
+
+  <link rel="stylesheet" href="node_modules/wb-starter/src/styles/normalize.css">
+  <link rel="stylesheet" href="node_modules/wb-starter/src/styles/themes.css">
+  <link rel="stylesheet" href="node_modules/wb-starter/src/styles/site.css">
+  <link rel="stylesheet" href="node_modules/wb-starter/src/styles/safari-fixes.css">
+  <link rel="stylesheet" href="src/gt-fretboard.css">
+  <link rel="stylesheet" href="src/gt-diatonic-chords.css">
+  <style>
+    body {
+      max-width: 900px;
+      margin: 0 auto;
+      padding: 2rem 1.5rem 4rem;
+      background: var(--bg-primary, #111827);
+      color: var(--text-primary, #f9fafb);
+      font-family: system-ui, sans-serif;
+    }
+    h1 { font-size: 1.75rem; margin-bottom: 0.25rem; }
+    .subtitle { color: var(--text-secondary, #9ca3af); margin-top: 0; margin-bottom: 2rem; }
+    section { margin-bottom: 2.5rem; }
+    h2 { font-size: 1.25rem; }
+    .gt-audio-toggle {
+      display: inline-flex;
+      align-items: center;
+      gap: 0.5rem;
+      border: 1px solid var(--border-color, #4b5563);
+      background: transparent;
+      color: var(--text-primary, #f9fafb);
+      border-radius: 999px;
+      padding: 0.4rem 1rem;
+      font-size: 0.9rem;
+      font-weight: 600;
+      cursor: pointer;
+      margin-bottom: 1.5rem;
+    }
+    .gt-audio-toggle[aria-pressed="true"] {
+      background: var(--primary, #6366f1);
+      border-color: var(--primary, #6366f1);
+      color: #fff;
+    }
+    .gt-controls {
+      display: flex;
+      flex-wrap: wrap;
+      align-items: center;
+      gap: 1rem;
+      margin-bottom: 1.5rem;
+    }
+    .gt-controls .gt-audio-toggle {
+      margin-bottom: 0;
+    }
+    .gt-key-card {
+      display: inline-flex;
+      align-items: center;
+      gap: 0.5rem;
+      border: 1px solid var(--border-color, #4b5563);
+      border-radius: var(--radius-md, 8px);
+      padding: 0.4rem 0.9rem;
+      font-size: 0.9rem;
+      font-weight: 600;
+    }
+    .gt-key-card select {
+      border: 1px solid var(--border-color, #4b5563);
+      border-radius: 6px;
+      background: var(--bg-primary, #111827);
+      color: var(--text-primary, #f9fafb);
+      padding: 0.3rem 0.5rem;
+      font-size: 0.9rem;
+      font-weight: 600;
+      cursor: pointer;
+    }
+    .gt-info-btn {
+      position: relative;
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      width: 1.35rem;
+      height: 1.35rem;
+      margin-left: 0.4rem;
+      vertical-align: middle;
+      border: 1px solid var(--border-color, #4b5563);
+      border-radius: 50%;
+      background: transparent;
+      color: var(--text-secondary, #9ca3af);
+      font-size: 0.85rem;
+      line-height: 1;
+      cursor: help;
+    }
+    .gt-info-btn:hover,
+    .gt-info-btn:focus-visible {
+      color: var(--text-primary, #f9fafb);
+      border-color: var(--primary, #6366f1);
+    }
+    .gt-info-tooltip {
+      display: none;
+      position: absolute;
+      top: 130%;
+      left: 0;
+      z-index: 10;
+      width: 320px;
+      max-width: min(80vw, 320px);
+      padding: 0.75rem 1rem;
+      border: 1px solid var(--border-color, #374151);
+      border-radius: var(--radius-md, 8px);
+      background: var(--bg-secondary, #1f2937);
+      color: var(--text-primary, #f9fafb);
+      font-size: 0.85rem;
+      font-weight: 400;
+      text-align: left;
+      line-height: 1.5;
+      box-shadow: 0 8px 20px rgba(0, 0, 0, 0.35);
+    }
+    .gt-info-btn:hover .gt-info-tooltip,
+    .gt-info-btn:focus-visible .gt-info-tooltip {
+      display: block;
+    }
+    .gt-nav-links {
+      display: flex;
+      gap: 1rem;
+      margin-bottom: 1rem;
+    }
+    .gt-nav-link {
+      display: inline-block;
+      color: var(--primary, #6366f1);
+      font-size: 0.9rem;
+      font-weight: 600;
+      text-decoration: none;
+    }
+    .gt-nav-link:hover {
+      text-decoration: underline;
+    }
+  </style>
+</head>
+<body>
+  <h1>Guitar Chord Theory</h1>
+  <p class="subtitle">Starting in the key of <span id="key-subtitle">C</span> — intervals across the fretboard.</p>
+  <div class="gt-nav-links">
+    <a href="spellings.html" class="gt-nav-link">Chord spellings reference →</a>
+    <a href="songs.html" class="gt-nav-link">Songs →</a>
+  </div>
+
+  <div class="gt-controls">
+    <button type="button" id="audio-toggle" class="gt-audio-toggle" aria-pressed="false">🔇 Turn on audio</button>
+    <div id="theme-control"></div>
+    <label class="gt-key-card">
+      Key
+      <select id="key-select"></select>
+    </label>
+  </div>
+
+  <section>
+    <h2>What is a chord?</h2>
+    <p>A chord needs at least <strong>3 notes</strong>. A major chord is spelled <strong>1&nbsp;–&nbsp;3&nbsp;–&nbsp;5</strong> (root, major 3rd, perfect 5th).</p>
+  </section>
+
+  <section>
+    <h2>The <span id="key-scale-heading">C</span> major scale, string by string</h2>
+    <p>
+      The whole <span id="key-scale-copy">C</span> major scale laid out across all six strings, labeled 1-7 by
+      scale degree. Click any chord below and its shape shows up here too.
+    </p>
+    <gt-fretboard root="C" frets="12"></gt-fretboard>
+
+    <h2>
+      All seven chords in the key of <span id="key-chords-heading">C</span>
+      <button type="button" class="gt-info-btn" aria-label="How these chords are built">
+        <span aria-hidden="true">ⓘ</span>
+        <span class="gt-info-tooltip">
+          Harmonize the major scale — stack a diatonic 3rd and 5th on top of every
+          scale degree — and you get all seven chords in the key, labeled here with
+          Nashville Numbers. Notice <strong>1, 4, 5</strong> come out major;
+          <strong>2, 3, 6</strong> come out minor; <strong>7</strong> comes out diminished.
+          That pattern (major–minor–minor–major–major–minor–diminished) is fixed for
+          every major key, not just C.
+          <br><br>
+          Each fingering below is <strong>root position</strong> — the chord's own root
+          is the lowest note you play, not the 3rd or 5th.
+        </span>
+      </button>
+    </h2>
+    <gt-diatonic-chords root="C"></gt-diatonic-chords>
+  </section>
+
+  <script type="importmap">
+  {
+    "imports": {
+      "wb-starter": "./node_modules/wb-starter/src/core/wb.js",
+      "wb-starter/": "./node_modules/wb-starter/src/"
+    }
+  }
+  </script>
+  <script type="module">
+    import WB from 'wb-starter';
+    import './src/gt-fretboard.js';
+    import './src/gt-diatonic-chords.js';
+    import { toggleAudio } from './src/audio.js';
+    import { NOTE_NAMES } from './src/theory.js';
+    import { themecontrol } from 'wb-starter/wb-viewmodels/themecontrol.js';
+
+    window.WB = WB;
+    WB.scan(document.body);
+
+    themecontrol(document.getElementById('theme-control'), { target: 'html', default: 'dark' });
+
+    const fretboard = document.querySelector('gt-fretboard');
+    const diatonicChords = document.querySelector('gt-diatonic-chords');
+    document.addEventListener('gt:chord-shape-selected', (e) => {
+      fretboard.showChordShape(e.detail.name, e.detail.positionsByInversion, e.detail.inversionSummary, e.detail.showNoteNames);
+    });
+
+    const audioToggle = document.getElementById('audio-toggle');
+    audioToggle.addEventListener('click', () => {
+      const on = toggleAudio();
+      audioToggle.setAttribute('aria-pressed', String(on));
+      audioToggle.textContent = on ? '🔊 Audio on — click any note or chord' : '🔇 Turn on audio';
+    });
+
+    const keySelect = document.getElementById('key-select');
+    NOTE_NAMES.forEach((note) => {
+      const option = document.createElement('option');
+      option.value = note;
+      option.textContent = note;
+      keySelect.appendChild(option);
+    });
+    keySelect.value = 'C';
+    keySelect.addEventListener('change', () => {
+      const key = keySelect.value;
+      document.getElementById('key-subtitle').textContent = key;
+      document.getElementById('key-scale-heading').textContent = key;
+      document.getElementById('key-scale-copy').textContent = key;
+      document.getElementById('key-chords-heading').textContent = key;
+      fretboard.clearChord(); // also resets gt-diatonic-chords' selected-chord state via gt:chord-cleared
+      fretboard.setAttribute('root', key);
+      diatonicChords.setAttribute('root', key);
+    });
+  </script>
+</body>
+</html>

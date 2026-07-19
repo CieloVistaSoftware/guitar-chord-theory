@@ -1,0 +1,136 @@
+<!DOCTYPE html>
+<html lang="en" data-theme="dark">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Songs — Guitar Chord Theory</title>
+
+  <link rel="stylesheet" href="node_modules/wb-starter/src/styles/normalize.css">
+  <link rel="stylesheet" href="node_modules/wb-starter/src/styles/themes.css">
+  <link rel="stylesheet" href="node_modules/wb-starter/src/styles/site.css">
+  <link rel="stylesheet" href="node_modules/wb-starter/src/styles/safari-fixes.css">
+  <link rel="stylesheet" href="src/gt-fretboard.css">
+  <link rel="stylesheet" href="src/songs.css">
+  <style>
+    body {
+      max-width: 900px;
+      margin: 0 auto;
+      padding: 2rem 1.5rem 4rem;
+      background: var(--bg-primary, #111827);
+      color: var(--text-primary, #f9fafb);
+      font-family: system-ui, sans-serif;
+    }
+    h1 { font-size: 1.75rem; margin-bottom: 0.25rem; }
+    .subtitle { color: var(--text-secondary, #9ca3af); margin-top: 0; margin-bottom: 1rem; }
+    section { margin-bottom: 2.5rem; }
+    h2 { font-size: 1.25rem; }
+    .gt-nav-links {
+      display: flex;
+      gap: 1rem;
+      margin-bottom: 1rem;
+    }
+    .gt-nav-link {
+      display: inline-block;
+      color: var(--primary, #6366f1);
+      font-size: 0.9rem;
+      font-weight: 600;
+      text-decoration: none;
+    }
+    .gt-nav-link:hover {
+      text-decoration: underline;
+    }
+    .gt-audio-toggle {
+      display: inline-flex;
+      align-items: center;
+      gap: 0.5rem;
+      border: 1px solid var(--border-color, #4b5563);
+      background: transparent;
+      color: var(--text-primary, #f9fafb);
+      border-radius: 999px;
+      padding: 0.4rem 1rem;
+      font-size: 0.9rem;
+      font-weight: 600;
+      cursor: pointer;
+    }
+    .gt-audio-toggle[aria-pressed="true"] {
+      background: var(--primary, #6366f1);
+      border-color: var(--primary, #6366f1);
+      color: #fff;
+    }
+    .gt-controls {
+      display: flex;
+      flex-wrap: wrap;
+      align-items: center;
+      gap: 1rem;
+      margin-bottom: 1.5rem;
+    }
+  </style>
+</head>
+<body>
+  <h1>Songs</h1>
+  <p class="subtitle">Real songs, built entirely from the seven chords of C major.</p>
+  <div class="gt-nav-links">
+    <a href="index.html" class="gt-nav-link">← Back to the lesson</a>
+    <a href="spellings.html" class="gt-nav-link">Chord spellings reference →</a>
+  </div>
+
+  <div class="gt-controls">
+    <button type="button" id="audio-toggle" class="gt-audio-toggle" aria-pressed="false">🔇 Turn on audio</button>
+    <div id="theme-control"></div>
+  </div>
+
+  <section>
+    <h2>The C major scale, string by string</h2>
+    <p>Click any chord below and its shape shows up here.</p>
+    <gt-fretboard root="C" frets="12"></gt-fretboard>
+
+    <h2>Songs</h2>
+    <p>
+      Each song is really just a Nashville-number formula (like <strong>1 – 5 – 6 – 4</strong>)
+      — notice how many completely different songs share the exact same one. Pick a song
+      below; use its "Play in" selector to transpose it to any key. Click a chord to hear
+      it and see its shape; click it again for note names instead of interval numbers.
+      In the original key of C every chord has a verified fingering; some other keys may
+      land on a chord we haven't charted yet.
+    </p>
+    <div id="songs-list"></div>
+  </section>
+
+  <script type="importmap">
+  {
+    "imports": {
+      "wb-starter": "./node_modules/wb-starter/src/core/wb.js",
+      "wb-starter/": "./node_modules/wb-starter/src/"
+    }
+  }
+  </script>
+  <script type="module">
+    import WB from 'wb-starter';
+    import './src/gt-fretboard.js';
+    import { toggleAudio } from './src/audio.js';
+    import { themecontrol } from 'wb-starter/wb-viewmodels/themecontrol.js';
+    import { renderSongs } from './src/songs.js';
+
+    window.WB = WB;
+    WB.scan(document.body);
+
+    themecontrol(document.getElementById('theme-control'), { target: 'html', default: 'dark' });
+
+    const fretboard = document.querySelector('gt-fretboard');
+    renderSongs(
+      document.getElementById('songs-list'),
+      (detail) => {
+        fretboard.showChordShape(detail.name, detail.positionsByInversion, detail.inversionSummary, detail.showNoteNames);
+      },
+      (el) => WB.scan(el)
+    );
+
+    const audioToggle = document.getElementById('audio-toggle');
+    audioToggle.addEventListener('click', () => {
+      const on = toggleAudio();
+      audioToggle.setAttribute('aria-pressed', String(on));
+      audioToggle.textContent = on ? '🔊 Audio on — click any chord' : '🔇 Turn on audio';
+    });
+  </script>
+</body>
+</html>

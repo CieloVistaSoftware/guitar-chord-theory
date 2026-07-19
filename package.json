@@ -1,0 +1,15 @@
+{
+  "name": "guitar-chord-theory",
+  "version": "0.1.0",
+  "description": "Interactive guitar chord and interval theory, starting in the key of C.",
+  "type": "module",
+  "scripts": {
+    "dev": "npx serve . -p 4000"
+  },
+  "keywords": ["guitar", "music-theory", "chords", "intervals"],
+  "author": "",
+  "license": "MIT",
+  "dependencies": {
+    "wb-starter": "^3.0.0"
+  }
+}

@@ -1,0 +1,79 @@
+gt-fretboard {
+  display: block;
+}
+
+.gt-fretboard__mode-switch {
+  display: inline-flex;
+  border: 1px solid var(--border-color, #4b5563);
+  border-radius: 999px;
+  padding: 0.2rem;
+  margin-bottom: 1rem;
+}
+
+.gt-mode-btn {
+  border: none;
+  background: transparent;
+  color: var(--text-secondary, #9ca3af);
+  padding: 0.35rem 0.9rem;
+  border-radius: 999px;
+  font-size: 0.85rem;
+  font-weight: 600;
+  cursor: pointer;
+}
+
+.gt-mode-btn.is-active {
+  background: var(--primary, #6366f1);
+  color: #fff;
+}
+
+.gt-fretboard__mode-switch--inversions {
+  padding: 0.4rem;
+  gap: 0.2rem;
+}
+
+.gt-fretboard__mode-switch--inversions .gt-mode-btn {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 0.15rem;
+  padding: 0.4rem 0.9rem;
+}
+
+.gt-mode-btn__subtitle {
+  font-size: 0.7rem;
+  font-weight: 400;
+  opacity: 0.85;
+}
+
+.gt-fretboard__chord-banner {
+  display: flex;
+  align-items: center;
+  gap: 1rem;
+  margin-bottom: 1rem;
+  font-size: 0.95rem;
+  color: var(--text-secondary, #9ca3af);
+}
+
+.gt-mode-btn--back {
+  border: 1px solid var(--border-color, #4b5563);
+}
+
+.gt-fretboard__svg {
+  width: 100%;
+  height: auto;
+  background: var(--bg-secondary, #1f2937);
+  border-radius: var(--radius-md, 8px);
+  border: 1px solid var(--border-color, #374151);
+}
+
+.gt-dot {
+  cursor: pointer;
+}
+
+.gt-dot:hover circle {
+  stroke-width: 3;
+}
+
+.gt-dot--bare:hover text {
+  opacity: 0.75;
+}

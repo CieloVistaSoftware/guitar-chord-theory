@@ -1,0 +1,190 @@
+.cs-song-picker {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.5rem;
+  border: 1px solid var(--border-color, #4b5563);
+  border-radius: var(--radius-md, 8px);
+  padding: 0.4rem 0.9rem;
+  font-size: 0.9rem;
+  font-weight: 600;
+  margin-bottom: 1rem;
+}
+
+.cs-song-picker select {
+  border: 1px solid var(--border-color, #4b5563);
+  border-radius: 6px;
+  background: var(--bg-primary, #111827);
+  color: var(--text-primary, #f9fafb);
+  padding: 0.3rem 0.5rem;
+  font-size: 0.9rem;
+  font-weight: 600;
+  cursor: pointer;
+}
+
+/* .cs-song-card is a <wb-card> -- header/main/footer padding, border, and
+   background all come from wb-card's own enhancement; these rules only
+   style OUR content inside those regions. */
+.cs-song__title {
+  font-size: 1.2rem;
+  font-weight: 700;
+}
+
+.cs-song__artist {
+  font-size: 0.85rem;
+  color: var(--text-secondary, #9ca3af);
+  margin: 0.2rem 0 0;
+}
+
+.cs-song__formula {
+  font-size: 0.8rem;
+  font-weight: 600;
+  color: var(--primary, #6366f1);
+  margin: 0.4rem 0 0;
+  font-variant-numeric: tabular-nums;
+}
+
+.cs-song__sections {
+  display: inline-flex;
+  gap: 0.4rem;
+  margin-top: 0.5rem;
+}
+
+.cs-song__section-btn {
+  border: 1px solid var(--border-color, #4b5563);
+  border-radius: 999px;
+  background: transparent;
+  color: var(--text-secondary, #9ca3af);
+  padding: 0.25rem 0.7rem;
+  font-family: inherit;
+  font-size: 0.75rem;
+  font-weight: 700;
+  cursor: pointer;
+}
+
+.cs-song__section-btn.is-active {
+  background: var(--primary, #6366f1);
+  border-color: var(--primary, #6366f1);
+  color: #fff;
+}
+
+.cs-song__section-label {
+  font-size: 0.75rem;
+  font-weight: 700;
+  color: var(--text-secondary, #9ca3af);
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  margin: 0.5rem 0 0;
+}
+
+.cs-song-card footer {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.75rem;
+}
+
+.cs-song__play-btn {
+  border: 1px solid var(--border-color, #4b5563);
+  border-radius: 999px;
+  background: transparent;
+  color: var(--text-primary, #f9fafb);
+  padding: 0.4rem 0.9rem;
+  font-family: inherit;
+  font-size: 0.85rem;
+  font-weight: 600;
+  cursor: pointer;
+}
+
+.cs-song__play-btn:hover:not(:disabled) {
+  background: var(--primary, #6366f1);
+  border-color: var(--primary, #6366f1);
+  color: #fff;
+}
+
+.cs-song__play-btn:disabled {
+  opacity: 0.7;
+  cursor: default;
+}
+
+.cs-song__key {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.4rem;
+  font-size: 0.8rem;
+  font-weight: 600;
+  color: var(--text-secondary, #9ca3af);
+}
+
+.cs-song__key select {
+  border: 1px solid var(--border-color, #4b5563);
+  border-radius: 6px;
+  background: var(--bg-primary, #111827);
+  color: var(--text-primary, #f9fafb);
+  padding: 0.25rem 0.4rem;
+  font-size: 0.85rem;
+  font-weight: 600;
+  cursor: pointer;
+}
+
+.cs-song__tempo {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.4rem;
+  font-size: 0.8rem;
+  font-weight: 600;
+  color: var(--text-secondary, #9ca3af);
+}
+
+.cs-song-tempo-slider {
+  accent-color: var(--primary, #6366f1);
+}
+
+.cs-song-tempo-value {
+  min-width: 4.5em;
+  font-variant-numeric: tabular-nums;
+}
+
+.cs-song__chords {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 0.5rem;
+}
+
+.cs-song-chip {
+  border: 2px solid var(--primary, #6366f1);
+  border-radius: var(--radius-md, 8px);
+  background: transparent;
+  color: var(--text-primary, #f9fafb);
+  padding: 0.4rem 0.9rem;
+  font-family: inherit;
+  font-size: 0.95rem;
+  font-weight: 700;
+  cursor: pointer;
+  transition: background 0.15s ease, color 0.15s ease;
+}
+
+.cs-song-chip:hover,
+.cs-song-chip:focus-visible {
+  background: var(--primary, #6366f1);
+  color: #fff;
+}
+
+.cs-song-chip--no-shape {
+  border-color: var(--border-color, #4b5563);
+  color: var(--text-secondary, #9ca3af);
+  cursor: default;
+}
+
+.cs-song-chip--no-shape:hover,
+.cs-song-chip--no-shape:focus-visible {
+  background: transparent;
+  color: var(--text-secondary, #9ca3af);
+}
+
+.cs-song-chip.is-playing {
+  background: var(--primary, #6366f1);
+  color: #fff;
+  box-shadow: 0 0 0 3px color-mix(in srgb, var(--primary) 35%, transparent);
+}

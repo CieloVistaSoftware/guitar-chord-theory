@@ -1,0 +1,265 @@
+/**
+ * <gt-diatonic-chords root="C"></gt-diatonic-chords>
+ *
+ * Shows the seven diatonic triads of a major key, built by actually
+ * harmonizing the scale (see theory.js) rather than a hard-coded answer
+ * table -- labeled with Nashville Number System notation, each with its
+ * real open-position fingering (chord-shapes.js).
+ */
+import { harmonizeMajorScale, noteNameToPitchClass, pitchClassName, STANDARD_TUNING } from './theory.js';
+import { SHAPES_BY_INVERSION, buildChordShapeEventDetail, playChordAudio } from './chord-shape-builder.js';
+
+const QUALITY_COLOR = {
+  major: '#22c55e',
+  minor: '#6366f1',
+  diminished: '#ef4444',
+};
+
+const STRING_GAP = 26;
+const FRET_GAP = 28;
+const PAD_LEFT = 16;
+const PAD_TOP = 26;
+const DOT_RADIUS = 10;
+const FRETS_SHOWN = 4;
+
+export class GTDiatonicChords extends HTMLElement {
+  static get observedAttributes() {
+    return ['root'];
+  }
+
+  constructor() {
+    super();
+    this._selectedChord = null;
+    this._showNoteNames = false; // click same chord again to flip to note names
+    this._fingeringMode = 'notes'; // opposite of gt-fretboard's mode -- never show the same thing twice
+    this._chordDelayMs = 1100; // Play All tempo -- time each chord stays up before the next one
+    this._inversion = 'root'; // synced from the top fretboard's inversion selector
+    this._openLabelMode = 'O'; // 'O' | 'number' | 'note' -- open-string label on these small fingering charts only, never the big fretboard
+  }
+
+  connectedCallback() {
+    this.render();
+    this._onChordCleared = (e) => {
+      this._selectedChord = null;
+      this._showNoteNames = false;
+      this._fingeringMode = e.detail.mode === 'notes' ? 'intervals' : 'notes';
+      this.render();
+    };
+    document.addEventListener('gt:chord-cleared', this._onChordCleared);
+
+    // The top fretboard's Root Position / 1st Inversion / 2nd Inversion
+    // selector should retune every card's small diagram (and its audio)
+    // too, so the whole page agrees on which voicing is "the" shape.
+    this._onInversionChanged = (e) => {
+      this._inversion = e.detail.inversion;
+      this.render();
+    };
+    document.addEventListener('gt:inversion-changed', this._onInversionChanged);
+  }
+
+  disconnectedCallback() {
+    document.removeEventListener('gt:chord-cleared', this._onChordCleared);
+    document.removeEventListener('gt:inversion-changed', this._onInversionChanged);
+  }
+
+  attributeChangedCallback() {
+    if (this.isConnected) this.render();
+  }
+
+  render() {
+    const rootName = this.getAttribute('root') || 'C';
+    const rootPc = noteNameToPitchClass(rootName);
+    const chords = harmonizeMajorScale(rootPc);
+    this._chords = chords;
+
+    const INVERSION_LABEL = { root: 'Root Position', first: '1st Inversion', second: '2nd Inversion' };
+
+    const OPEN_LABEL_MODES = [
+      { key: 'O', label: 'O' },
+      { key: 'number', label: 'Number' },
+      { key: 'note', label: 'Note Name' },
+    ];
+
+    this.innerHTML = `
+      <div class="gt-diatonic__toolbar">
+        <button type="button" class="gt-diatonic__play-all">▶ Play all seven chords</button>
+        <label class="gt-diatonic__tempo">
+          Tempo
+          <input type="range" class="gt-diatonic__tempo-slider" min="500" max="2000" step="100" value="${this._chordDelayMs}">
+          <span class="gt-diatonic__tempo-value">${(this._chordDelayMs / 1000).toFixed(1)}s/chord</span>
+        </label>
+        <span class="gt-diatonic__inversion-badge">Showing: ${INVERSION_LABEL[this._inversion]}</span>
+        <span class="gt-diatonic__open-label-group">
+          Open strings show:
+          ${OPEN_LABEL_MODES.map((m) => `
+            <button type="button" class="gt-diatonic__open-label-btn ${this._openLabelMode === m.key ? 'is-active' : ''}" data-open-label="${m.key}">${m.label}</button>
+          `).join('')}
+        </span>
+      </div>
+      <div class="gt-diatonic">
+        ${chords.map((c) => `
+          <button type="button" class="gt-diatonic__chord" style="--quality-color:${QUALITY_COLOR[c.quality]}"
+                  data-chord="${c.chordName}" data-quality="${c.quality}"
+                  data-notes="${c.notes.join(',')}" aria-label="Show ${c.chordName}'s ${INVERSION_LABEL[this._inversion]} on the fretboard">
+            <div class="gt-diatonic__nashville">${c.nashville}</div>
+            <div class="gt-diatonic__name">${c.chordName}</div>
+            <div class="gt-diatonic__quality">${c.quality}</div>
+            ${this._renderFingering(c, QUALITY_COLOR[c.quality])}
+            <div class="gt-diatonic__notes">${c.notes.join(' – ')}</div>
+          </button>
+        `).join('')}
+      </div>
+    `;
+
+    this.querySelector('.gt-diatonic__play-all').addEventListener('click', () => this._playAll());
+
+    const tempoSlider = this.querySelector('.gt-diatonic__tempo-slider');
+    const tempoValue = this.querySelector('.gt-diatonic__tempo-value');
+    tempoSlider.addEventListener('input', () => {
+      this._chordDelayMs = Number(tempoSlider.value);
+      tempoValue.textContent = `${(this._chordDelayMs / 1000).toFixed(1)}s/chord`;
+    });
+
+    this.querySelectorAll('.gt-diatonic__open-label-btn').forEach((btn) => {
+      btn.addEventListener('click', () => {
+        this._openLabelMode = btn.dataset.openLabel;
+        this.render();
+      });
+    });
+
+    this.querySelectorAll('.gt-diatonic__chord').forEach((card) => {
+      card.addEventListener('click', () => {
+        const chordName = card.dataset.chord;
+
+        // Same chord clicked again -> flip between interval labels (1-♭3-5)
+        // and note names (e.g. D-F-A). A different chord always starts
+        // fresh on interval labels.
+        if (this._selectedChord === chordName) {
+          this._showNoteNames = !this._showNoteNames;
+        } else {
+          this._selectedChord = chordName;
+          this._showNoteNames = false;
+        }
+
+        const c = this._chords.find((ch) => ch.chordName === chordName);
+        this.dispatchEvent(new CustomEvent('gt:chord-shape-selected', {
+          bubbles: true,
+          detail: buildChordShapeEventDetail(c, this._showNoteNames),
+        }));
+        playChordAudio(chordName, this._inversion);
+
+        // The big fretboard above is now showing this chord's root position
+        // as note names or intervals (whichever _showNoteNames just picked).
+        // Flip every fingering diagram below to the opposite, same rule as
+        // the scale-wide Notes button -- never show the same thing twice.
+        this._fingeringMode = this._showNoteNames ? 'intervals' : 'notes';
+        this.render();
+      });
+    });
+  }
+
+  /** Walk through all seven diatonic chords in order, strumming and highlighting each in turn. */
+  async _playAll() {
+    if (this._playingAll) return;
+    this._playingAll = true;
+    const btn = this.querySelector('.gt-diatonic__play-all');
+    btn.disabled = true;
+    btn.textContent = '▶ Playing…';
+
+    for (const c of this._chords) {
+      this.querySelectorAll('.gt-diatonic__chord.is-playing').forEach((el) => el.classList.remove('is-playing'));
+      const card = this.querySelector(`.gt-diatonic__chord[data-chord="${c.chordName}"]`);
+      if (card) card.classList.add('is-playing');
+
+      this.dispatchEvent(new CustomEvent('gt:chord-shape-selected', {
+        bubbles: true,
+        detail: buildChordShapeEventDetail(c, false),
+      }));
+      playChordAudio(c.chordName, this._inversion);
+
+      await new Promise((resolve) => setTimeout(resolve, this._chordDelayMs));
+    }
+
+    this.querySelectorAll('.gt-diatonic__chord.is-playing').forEach((el) => el.classList.remove('is-playing'));
+    this._playingAll = false;
+    btn.disabled = false;
+    btn.textContent = '▶ Play all seven chords';
+  }
+
+  _renderFingering(c, color) {
+    const shape = SHAPES_BY_INVERSION[this._inversion]?.[c.chordName];
+    // Verified fingerings only exist for C major's own 7 diatonic chords so
+    // far. Say so plainly rather than leaving a blank gap that looks broken.
+    if (!shape) return `<p class="gt-diatonic__no-shape">No fingering chart yet for ${c.chordName} in this key.</p>`;
+    const [rootName, thirdName, fifthName] = c.notes;
+    const rootPc = noteNameToPitchClass(rootName);
+    const thirdPc = noteNameToPitchClass(thirdName);
+    const fifthPc = noteNameToPitchClass(fifthName);
+    const intervalLabelFor = (pc) => {
+      if (pc === rootPc) return '1';
+      if (pc === thirdPc) return c.quality === 'major' ? '3' : '♭3';
+      if (pc === fifthPc) return c.quality === 'diminished' ? '♭5' : '5';
+      return '';
+    };
+
+    const width = PAD_LEFT + 5 * STRING_GAP + 16;
+    const height = PAD_TOP + FRETS_SHOWN * FRET_GAP + 10;
+
+    let grid = '';
+    for (let f = 0; f <= FRETS_SHOWN; f++) {
+      const y = PAD_TOP + f * FRET_GAP;
+      grid += `<line x1="${PAD_LEFT}" y1="${y}" x2="${PAD_LEFT + 5 * STRING_GAP}" y2="${y}"
+                      stroke="${f === 0 ? '#e5e7eb' : '#4b5563'}" stroke-width="${f === 0 ? 4 : 1}" />`;
+    }
+    for (let s = 0; s < 6; s++) {
+      const x = PAD_LEFT + s * STRING_GAP;
+      grid += `<line x1="${x}" y1="${PAD_TOP}" x2="${x}" y2="${PAD_TOP + FRETS_SHOWN * FRET_GAP}"
+                      stroke="#6b7280" stroke-width="1" />`;
+    }
+
+    let markers = '';
+    let dots = '';
+    shape.forEach((fret, s) => {
+      const x = PAD_LEFT + s * STRING_GAP;
+      if (fret === null) {
+        markers += `<text x="${x}" y="${PAD_TOP - 12}" text-anchor="middle" font-size="11" fill="#6b7280">✕</text>`;
+        return;
+      }
+      if (fret === 0) {
+        const openY = PAD_TOP - 12;
+        const openPc = STANDARD_TUNING[s] % 12;
+        // Open strings on these fingering charts follow the "Open strings
+        // show" selector (O / Number / Note Name), independent of the
+        // fretted-note interval/note-name toggle above.
+        if (this._openLabelMode === 'O') {
+          dots += `<text x="${x}" y="${openY + 3}" text-anchor="middle" font-size="9" font-weight="700" fill="#ffffff">O</text>`;
+        } else {
+          const openLabel = this._openLabelMode === 'number' ? intervalLabelFor(openPc) : pitchClassName(openPc);
+          dots += `
+            <g>
+              <circle cx="${x}" cy="${openY}" r="7" fill="${color}" stroke="#111827" stroke-width="1" />
+              <text x="${x}" y="${openY + 3}" text-anchor="middle" font-size="7" font-weight="700" fill="#111827">${openLabel}</text>
+            </g>`;
+        }
+        return;
+      }
+      const y = PAD_TOP + (fret - 1) * FRET_GAP + FRET_GAP / 2;
+      const notePc = (STANDARD_TUNING[s] + fret) % 12;
+      const label = this._fingeringMode === 'intervals' ? intervalLabelFor(notePc) : pitchClassName(notePc);
+      dots += `
+        <g>
+          <circle cx="${x}" cy="${y}" r="${DOT_RADIUS}" fill="${color}" stroke="#111827" stroke-width="1" />
+          <text x="${x}" y="${y + 3}" text-anchor="middle" font-size="8" font-weight="700" fill="#111827">${label}</text>
+        </g>`;
+    });
+
+    return `
+      <svg class="gt-diatonic__fingering" viewBox="0 0 ${width} ${height}" role="img" aria-label="${c.chordName} fingering">
+        ${grid}${markers}${dots}
+      </svg>`;
+  }
+}
+
+if (!customElements.get('gt-diatonic-chords')) {
+  customElements.define('gt-diatonic-chords', GTDiatonicChords);
+}

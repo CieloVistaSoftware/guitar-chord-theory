@@ -1,0 +1,45 @@
+{
+  "lastRun": "2026-07-19T02:43:42.078Z",
+  "totalChecks": 9,
+  "bugs": [
+    {
+      "id": "bug-regression-tests",
+      "checkId": "chk-regression-tests",
+      "title": "Regression tests failing",
+      "detail": "✗ REG-001a: Every package imported in src/ is listed in dependencies\n✗ REG-001c: No require() of external packages in extension host\n✗ REG-003: TypeScript compiles with zero errors\n✗ REG-004: Every catalog command ID is wired through a registerCommand() call\n✗ REG-005: No duplicate command IDs in catalog.ts\n✗ REG-006: package.json contributes.commands covers all catalog IDs\n✗ REG-007: extension.ts activates all feature modules\n✗ REG-008: No bare console.log in extension host (warning)",
+      "evidence": [
+        "✗ REG-001a: Every package imported in src/ is listed in dependencies",
+        "✗ REG-001c: No require() of external packages in extension host",
+        "✗ REG-003: TypeScript compiles with zero errors",
+        "✗ REG-004: Every catalog command ID is wired through a registerCommand() call",
+        "✗ REG-005: No duplicate command IDs in catalog.ts",
+        "✗ REG-006: package.json contributes.commands covers all catalog IDs",
+        "✗ REG-007: extension.ts activates all feature modules",
+        "✗ REG-008: No bare console.log in extension host (warning)"
+      ],
+      "priority": "high",
+      "category": "Quality",
+      "recommendation": "Run node scripts/run-regression-tests.js and fix the failing tests.",
+      "detectedAt": "2026-07-19T02:41:32.057Z",
+      "fixed": false
+    },
+    {
+      "id": "bug-untagged-code",
+      "checkId": "chk-untagged-code-blocks",
+      "title": "2 untagged fenced code block(s); first at C:\\Users\\jwpmi\\Downloads\\VSCode\\projects\\cielovista-tools\\docs\\priority-sync-integration.md:19",
+      "detail": "Code blocks without language tags will not get syntax highlighting. Showing 2 example location(s).",
+      "recommendation": "Replace bare fences with tagged fences such as ```ts, ```js, ```powershell, ```json, or ```bash so docs render with the right syntax highlighting.",
+      "evidence": [
+        "C:\\Users\\jwpmi\\Downloads\\VSCode\\projects\\cielovista-tools\\docs\\priority-sync-integration.md:19",
+        "C:\\Users\\jwpmi\\Downloads\\VSCode\\projects\\cielovista-tools\\src\\shared\\error-log-utils.README.md:101"
+      ],
+      "priority": "low",
+      "category": "Documentation",
+      "fixCommandId": "cvs.audit.codeHighlight",
+      "fixLabel": "Open Code Highlight Audit",
+      "detectedAt": "2026-07-19T02:43:09.459Z",
+      "fixed": false
+    }
+  ],
+  "checkIndex": 1
+}

@@ -1,0 +1,139 @@
+.cs-formula-table {
+  display: flex;
+  flex-direction: column;
+  border: 1px solid var(--border-color, #374151);
+  border-radius: var(--radius-md, 8px);
+  overflow: hidden;
+}
+
+.cs-formula-row {
+  display: grid;
+  grid-template-columns: 0.9fr 1.4fr 1.5fr 1.6fr;
+  align-items: center;
+  gap: 0.75rem;
+  padding: 0.7rem 1rem;
+  border: none;
+  border-left: 4px solid var(--quality-color, var(--border-color, #4b5563));
+  border-bottom: 1px solid var(--border-color, #374151);
+  background: var(--bg-secondary, #1f2937);
+  color: var(--text-primary, #f9fafb);
+  font-family: inherit;
+  font-size: 0.9rem;
+  text-align: left;
+  cursor: pointer;
+}
+
+.cs-formula-row:last-child {
+  border-bottom: none;
+}
+
+.cs-formula-row--header {
+  cursor: default;
+  border-left-color: transparent;
+  font-size: 0.75rem;
+  font-weight: 700;
+  color: var(--text-secondary, #9ca3af);
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+}
+
+.cs-formula-row:not(.cs-formula-row--header):hover,
+.cs-formula-row:not(.cs-formula-row--header):focus-visible {
+  background: color-mix(in srgb, var(--quality-color) 20%, var(--bg-secondary, #1f2937));
+}
+
+.cs-formula-row__symbol {
+  font-weight: 800;
+  font-size: 1.05rem;
+  color: var(--quality-color, var(--text-primary, #f9fafb));
+}
+
+.cs-formula-row__name {
+  font-weight: 700;
+}
+
+.cs-formula-row__formula {
+  font-variant-numeric: tabular-nums;
+}
+
+.cs-formula-row__example {
+  color: var(--text-secondary, #9ca3af);
+}
+
+.cs-diatonic-table {
+  display: flex;
+  flex-direction: column;
+}
+
+.cs-diatonic-row {
+  display: flex;
+  align-items: center;
+  gap: 1rem;
+  padding: 0.85rem 0;
+  border-bottom: 1px solid var(--border-color, #374151);
+}
+
+.cs-diatonic-row:first-child {
+  border-top: 1px solid var(--border-color, #374151);
+}
+
+.cs-diatonic-row__key {
+  flex-shrink: 0;
+  width: 2.5rem;
+  font-size: 1.4rem;
+  font-weight: 800;
+}
+
+.cs-diatonic-row__chords {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.5rem;
+}
+
+.cs-diatonic-chip {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 0.1rem;
+  min-width: 4.5rem;
+  border: 2px solid var(--quality-color, var(--border-color, #4b5563));
+  border-radius: var(--radius-md, 8px);
+  background: var(--bg-secondary, #1f2937);
+  color: var(--text-primary, #f9fafb);
+  padding: 0.4rem 0.6rem;
+  font-family: inherit;
+  cursor: pointer;
+  transition: background 0.15s ease, color 0.15s ease;
+}
+
+.cs-diatonic-chip:hover,
+.cs-diatonic-chip:focus-visible {
+  background: var(--quality-color, var(--primary, #6366f1));
+  color: #111827;
+}
+
+.cs-diatonic-chip__nashville {
+  font-weight: 800;
+  font-size: 0.9rem;
+  color: var(--quality-color, var(--text-primary, #f9fafb));
+}
+
+.cs-diatonic-chip:hover .cs-diatonic-chip__nashville,
+.cs-diatonic-chip:focus-visible .cs-diatonic-chip__nashville {
+  color: #111827;
+}
+
+.cs-diatonic-chip__name {
+  font-weight: 700;
+  font-size: 0.8rem;
+}
+
+.cs-diatonic-chip__notes {
+  font-size: 0.65rem;
+  color: var(--text-secondary, #9ca3af);
+}
+
+.cs-diatonic-chip:hover .cs-diatonic-chip__notes,
+.cs-diatonic-chip:focus-visible .cs-diatonic-chip__notes {
+  color: #111827;
+}
