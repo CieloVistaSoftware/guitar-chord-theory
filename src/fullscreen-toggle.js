@@ -23,10 +23,11 @@ export function wireFullscreenToggle(btn, targetEl) {
 
   // The button is a small target -- clicking anywhere else on the card
   // (the fretboard itself) should also work. Only note dots, the mode/
-  // inversion buttons, and the fullscreen button keep their own click
-  // behavior; everything else on the card falls through to toggle().
+  // inversion buttons, the fullscreen button, and the card's own resize
+  // handle (x-behavior="resizable") keep their own click/drag behavior;
+  // everything else on the card falls through to toggle().
   targetEl.addEventListener('click', (e) => {
-    if (e.target.closest('button, a, select, input, .gt-dot')) return;
+    if (e.target.closest('button, a, select, input, .gt-dot, .wb-resizable__handle')) return;
     toggle();
   });
 
