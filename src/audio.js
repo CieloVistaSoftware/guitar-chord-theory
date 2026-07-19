@@ -1,7 +1,10 @@
 /**
- * Minimal Web Audio note player. Browsers block audio until a user gesture
- * starts the AudioContext -- the "turn on audio" button in index.html is
- * that gesture.
+ * Web Audio note player using Karplus-Strong plucked-string synthesis --
+ * the classic physical-modeling technique for guitar/harp/banjo tones (a
+ * short burst of noise fed through a decaying delay line), instead of a
+ * bare oscillator tone. No sample files needed, still a no-build static
+ * site. Browsers block audio until a user gesture starts the AudioContext
+ * -- the "turn on audio" button in index.html is that gesture.
  */
 let ctx = null;
 let enabled = false;
@@ -33,18 +36,60 @@ function midiToFrequency(midi) {
   return 440 * Math.pow(2, (midi - 69) / 12);
 }
 
-export function playMidi(midi, duration = 0.6, peakGain = 0.25, waveform = 'sine') {
+/**
+ * Karplus-Strong: seed a ring buffer the length of one waveform period with
+ * white noise (the "pluck"), then repeatedly play it back while averaging
+ * each sample with the one before it and decaying slightly -- that simple
+ * feedback loop is what turns a burst of noise into a naturally decaying,
+ * string-like tone. Precomputed into a plain buffer (rather than a live
+ * feedback loop) so it plays through an ordinary AudioBufferSourceNode, no
+ * AudioWorklet needed.
+ */
+function buildPluckBuffer(frequency, duration, decay) {
+  const sampleRate = ctx.sampleRate;
+  const periodSamples = Math.max(2, Math.round(sampleRate / frequency));
+  const totalSamples = Math.floor(sampleRate * duration);
+  const buffer = ctx.createBuffer(1, totalSamples, sampleRate);
+  const data = buffer.getChannelData(0);
+
+  const ring = new Float32Array(periodSamples);
+  for (let i = 0; i < periodSamples; i++) ring[i] = Math.random() * 2 - 1;
+
+  let prev = 0;
+  for (let i = 0; i < totalSamples; i++) {
+    const idx = i % periodSamples;
+    const sample = ring[idx];
+    data[i] = sample;
+    ring[idx] = decay * 0.5 * (sample + prev);
+    prev = sample;
+  }
+  return buffer;
+}
+
+/**
+ * @param brightness lowpass cutoff (Hz) -- lower = warmer/rounder (bass
+ * strings), higher = brighter/more pick attack (treble strings).
+ */
+export function playMidi(midi, duration = 1.4, peakGain = 0.3, brightness = 3200) {
   if (!enabled || !ctx) return;
-  const osc = ctx.createOscillator();
+  const frequency = midiToFrequency(midi);
+  const buffer = buildPluckBuffer(frequency, duration, 0.996);
+
+  const source = ctx.createBufferSource();
+  source.buffer = buffer;
+
+  const filter = ctx.createBiquadFilter();
+  filter.type = 'lowpass';
+  filter.frequency.value = brightness;
+
   const gain = ctx.createGain();
-  osc.type = waveform;
-  osc.frequency.value = midiToFrequency(midi);
   gain.gain.setValueAtTime(0.0001, ctx.currentTime);
-  gain.gain.exponentialRampToValueAtTime(peakGain, ctx.currentTime + 0.01);
-  gain.gain.exponentialRampToValueAtTime(0.0001, ctx.currentTime + duration);
-  osc.connect(gain).connect(ctx.destination);
-  osc.start();
-  osc.stop(ctx.currentTime + duration);
+  gain.gain.exponentialRampToValueAtTime(peakGain, ctx.currentTime + 0.005); // fast pick attack
+  gain.gain.exponentialRampToValueAtTime(0.0001, ctx.currentTime + duration); // fades out cleanly, no click at stop()
+
+  source.connect(filter).connect(gain).connect(ctx.destination);
+  source.start();
+  source.stop(ctx.currentTime + duration);
 }
 
 /**
@@ -52,15 +97,16 @@ export function playMidi(midi, duration = 0.6, peakGain = 0.25, waveform = 'sine
  * all at once. The first note is treated as the bass (root-position and
  * inversion shapes are always built low string to high, so midiNotes[0] is
  * always the lowest-pitched note) and gets extra volume, length, and a
- * fuller waveform -- otherwise a single low bass note is easy to lose
- * under five other simultaneous sine tones, and different inversions (which
- * only really differ in that one bass note) end up sounding identical.
+ * warmer (lower-brightness) tone -- otherwise a single low bass note is
+ * easy to lose under five other simultaneous plucks, and different
+ * inversions (which only really differ in that one bass note) end up
+ * sounding identical.
  */
 export function playChordMidi(midiNotes, strumSeconds = 0.06) {
   midiNotes.forEach((midi, i) => {
     const isBass = i === 0;
     setTimeout(
-      () => playMidi(midi, isBass ? 1.3 : 0.9, isBass ? 0.4 : 0.22, isBass ? 'triangle' : 'sine'),
+      () => playMidi(midi, isBass ? 1.8 : 1.3, isBass ? 0.35 : 0.22, isBass ? 2200 : 3400),
       i * strumSeconds * 1000
     );
   });
