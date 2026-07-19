@@ -64,6 +64,51 @@
       gap: 1rem;
       margin-bottom: 1.5rem;
     }
+    .gt-info-btn {
+      position: relative;
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      width: 1.35rem;
+      height: 1.35rem;
+      margin-left: 0.4rem;
+      vertical-align: middle;
+      border: 1px solid var(--border-color, #4b5563);
+      border-radius: 50%;
+      background: transparent;
+      color: var(--text-secondary, #9ca3af);
+      font-size: 0.85rem;
+      line-height: 1;
+      cursor: help;
+    }
+    .gt-info-btn:hover,
+    .gt-info-btn:focus-visible {
+      color: var(--text-primary, #f9fafb);
+      border-color: var(--primary, #6366f1);
+    }
+    .gt-info-tooltip {
+      display: none;
+      position: absolute;
+      top: 130%;
+      left: 0;
+      z-index: 10;
+      width: 320px;
+      max-width: min(80vw, 320px);
+      padding: 0.75rem 1rem;
+      border: 1px solid var(--border-color, #374151);
+      border-radius: var(--radius-md, 8px);
+      background: var(--bg-secondary, #1f2937);
+      color: var(--text-primary, #f9fafb);
+      font-size: 0.85rem;
+      font-weight: 400;
+      text-align: left;
+      line-height: 1.5;
+      box-shadow: 0 8px 20px rgba(0, 0, 0, 0.35);
+    }
+    .gt-info-btn:hover .gt-info-tooltip,
+    .gt-info-btn:focus-visible .gt-info-tooltip {
+      display: block;
+    }
   </style>
 </head>
 <body>
@@ -84,15 +129,20 @@
     <p>Click any chord below and its shape shows up here.</p>
     <gt-fretboard root="C" frets="12"></gt-fretboard>
 
-    <h2>Songs</h2>
-    <p>
-      Each song is really just a Nashville-number formula (like <strong>1 – 5 – 6 – 4</strong>)
-      — notice how many completely different songs share the exact same one. Pick a song
-      below; use its "Play in" selector to transpose it to any key. Click a chord to hear
-      it and see its shape; click it again for note names instead of interval numbers.
-      In the original key of C every chord has a verified fingering; some other keys may
-      land on a chord we haven't charted yet.
-    </p>
+    <h2>
+      Songs
+      <button type="button" class="gt-info-btn" aria-label="How songs work here">
+        <span aria-hidden="true">ⓘ</span>
+        <span class="gt-info-tooltip">
+          Each song is really just a Nashville-number formula (like <strong>1 – 5 – 6 – 4</strong>)
+          — notice how many completely different songs share the exact same one. Pick a song
+          below; use its "Play in" selector to transpose it to any key. Click a chord to hear
+          it and see its shape; click it again for note names instead of interval numbers.
+          In the original key of C every chord has a verified fingering; some other keys may
+          land on a chord we haven't charted yet.
+        </span>
+      </button>
+    </h2>
     <div id="songs-list"></div>
   </section>
 
