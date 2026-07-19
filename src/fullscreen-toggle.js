@@ -11,12 +11,23 @@ export function wireFullscreenToggle(btn, targetEl) {
     btn.setAttribute('aria-pressed', String(isFullscreen()));
   };
 
-  btn.addEventListener('click', () => {
+  const toggle = () => {
     if (isFullscreen()) {
       document.exitFullscreen();
     } else {
       targetEl.requestFullscreen();
     }
+  };
+
+  btn.addEventListener('click', toggle);
+
+  // The button is a small target -- clicking anywhere else on the card
+  // (the fretboard itself) should also work. Only note dots, the mode/
+  // inversion buttons, and the fullscreen button keep their own click
+  // behavior; everything else on the card falls through to toggle().
+  targetEl.addEventListener('click', (e) => {
+    if (e.target.closest('button, a, select, input, .gt-dot')) return;
+    toggle();
   });
 
   targetEl.addEventListener('fullscreenchange', updateLabel);

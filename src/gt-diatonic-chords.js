@@ -8,6 +8,7 @@
  */
 import { harmonizeMajorScale, noteNameToPitchClass, pitchClassName, STANDARD_TUNING } from './theory.js';
 import { SHAPES_BY_INVERSION, buildChordShapeEventDetail, playChordAudio } from './chord-shape-builder.js';
+import { setAudioEnabled } from './audio.js';
 
 const QUALITY_COLOR = {
   major: '#22c55e',
@@ -162,6 +163,8 @@ export class GTDiatonicChords extends HTMLElement {
   async _playAll() {
     if (this._playingAll) return;
     this._playingAll = true;
+    setAudioEnabled(true);
+    this.dispatchEvent(new CustomEvent('gt:audio-enabled', { bubbles: true }));
     const btn = this.querySelector('.gt-diatonic__play-all');
     btn.disabled = true;
     btn.textContent = '▶ Playing…';

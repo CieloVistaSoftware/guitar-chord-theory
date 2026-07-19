@@ -24,6 +24,7 @@
  */
 import { NOTE_NAMES, harmonizeMajorScale, noteNameToPitchClass } from './theory.js';
 import { buildChordShapeEventDetail, playChordAudio, SHAPES_BY_INVERSION } from './chord-shape-builder.js';
+import { setAudioEnabled } from './audio.js';
 
 const BARS_PER_CHORD = 2; // 4/4 time -- a common, simple practice pattern for these progressions
 const DEFAULT_BPM = 90;
@@ -119,6 +120,8 @@ export function renderSongs(container, onChordSelected, scanFn) {
   async function playSong(cardEl, playBtn) {
     if (isPlaying) return;
     isPlaying = true;
+    setAudioEnabled(true);
+    cardEl.dispatchEvent(new CustomEvent('gt:audio-enabled', { bubbles: true }));
     playBtn.disabled = true;
     playBtn.textContent = '▶ Playing…';
 

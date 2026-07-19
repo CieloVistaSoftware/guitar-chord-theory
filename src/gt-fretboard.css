@@ -44,6 +44,13 @@ gt-fretboard {
   max-height: 80vh;
 }
 
+/* Clicking the fretboard itself (not just the small button) also toggles
+   fullscreen -- cursor:zoom-in on the svg signals that without competing
+   with the dots' own pointer cursor for note playback. */
+.gt-fretboard-card main {
+  cursor: zoom-in;
+}
+
 .gt-fretboard__mode-switch {
   display: inline-flex;
   border: 1px solid var(--border-color, #4b5563);

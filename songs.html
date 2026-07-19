@@ -164,7 +164,7 @@
   <script type="module">
     import WB from 'wb-starter';
     import './src/gt-fretboard.js';
-    import { toggleAudio } from './src/audio.js';
+    import { toggleAudio, syncAudioToggleButton } from './src/audio.js';
     import { themecontrol } from 'wb-starter/wb-viewmodels/themecontrol.js';
     import { renderSongs } from './src/songs.js';
     import { wireFullscreenToggle } from './src/fullscreen-toggle.js';
@@ -186,11 +186,14 @@
     );
 
     const audioToggle = document.getElementById('audio-toggle');
+    const ON_LABEL = '🔊 Audio on — click any chord';
     audioToggle.addEventListener('click', () => {
-      const on = toggleAudio();
-      audioToggle.setAttribute('aria-pressed', String(on));
-      audioToggle.textContent = on ? '🔊 Audio on — click any chord' : '🔇 Turn on audio';
+      toggleAudio();
+      syncAudioToggleButton(audioToggle, ON_LABEL);
     });
+    // Pressing Play song turns audio on automatically -- no need to hunt for
+    // the separate toggle first just to hear the thing you asked to play.
+    document.addEventListener('gt:audio-enabled', () => syncAudioToggleButton(audioToggle, ON_LABEL));
   </script>
 </body>
 </html>

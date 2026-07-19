@@ -23,6 +23,12 @@ export function toggleAudio() {
   return setAudioEnabled(!enabled);
 }
 
+/** Keeps a page's visible audio-toggle button in sync with the actual enabled state. */
+export function syncAudioToggleButton(btn, onLabel = '🔊 Audio on') {
+  btn.setAttribute('aria-pressed', String(enabled));
+  btn.textContent = enabled ? onLabel : '🔇 Turn on audio';
+}
+
 function midiToFrequency(midi) {
   return 440 * Math.pow(2, (midi - 69) / 12);
 }
