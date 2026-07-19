@@ -7,41 +7,11 @@
  * Pure reference data -- no fretboard, no fingerings, works for all 12 keys
  * since it's built from pitch-class math, not the hand-curated shape charts.
  */
-import { NOTE_NAMES, pitchClassName, harmonizeMajorScale } from './theory.js';
+import { NOTE_NAMES, pitchClassName, harmonizeMajorScale, CHORD_FORMULAS } from './theory.js';
 import { playChordMidi } from './audio.js';
 
 const QUALITY_COLOR = { major: '#22c55e', minor: '#6366f1', diminished: '#ef4444' };
 const REFERENCE_OCTAVE = 60; // C4, just for the reference-table preview sound
-
-// Semitone offsets from the root for each named chord formula, plus the
-// chord-symbol suffix a guitarist would actually read on a published lead
-// sheet (root name + suffix, e.g. root "C" + suffix "m7" -> "Cm7").
-// Suffixes use the actual glyphs music publishers print, not spelled-out
-// words: ° for diminished, + for augmented, Δ for major (the triangle),
-// ø for half-diminished -- "dim"/"aug"/"maj" are informal text substitutes
-// for these, not what actually gets engraved. Independent of any specific
-// root -- "1-3-5" is Major everywhere, that's the whole point of a formula.
-const CHORD_FORMULAS = [
-  { name: 'Major', suffix: '', formula: ['1', '3', '5'], semitones: [0, 4, 7], color: '#22c55e' },
-  { name: 'Minor', suffix: 'm', formula: ['1', '♭3', '5'], semitones: [0, 3, 7], color: '#6366f1' },
-  { name: 'Diminished', suffix: '°', formula: ['1', '♭3', '♭5'], semitones: [0, 3, 6], color: '#ef4444' },
-  { name: 'Augmented', suffix: '+', formula: ['1', '3', '♯5'], semitones: [0, 4, 8], color: '#f59e0b' },
-  { name: 'Sus2', suffix: 'sus2', formula: ['1', '2', '5'], semitones: [0, 2, 7], color: '#06b6d4' },
-  { name: 'Sus4', suffix: 'sus4', formula: ['1', '4', '5'], semitones: [0, 5, 7], color: '#06b6d4' },
-  { name: 'Major 7th', suffix: 'Δ7', formula: ['1', '3', '5', '7'], semitones: [0, 4, 7, 11], color: '#22c55e' },
-  { name: 'Dominant 7th', suffix: '7', formula: ['1', '3', '5', '♭7'], semitones: [0, 4, 7, 10], color: '#a855f7' },
-  { name: 'Minor 7th', suffix: 'm7', formula: ['1', '♭3', '5', '♭7'], semitones: [0, 3, 7, 10], color: '#6366f1' },
-  { name: 'Half-Diminished 7th', suffix: 'ø7', formula: ['1', '♭3', '♭5', '♭7'], semitones: [0, 3, 6, 10], color: '#ef4444' },
-  { name: 'Diminished 7th', suffix: '°7', formula: ['1', '♭3', '♭5', '𝄫7'], semitones: [0, 3, 6, 9], color: '#ef4444' },
-  { name: 'Major 9th', suffix: 'Δ9', formula: ['1', '3', '5', '7', '9'], semitones: [0, 4, 7, 11, 14], color: '#22c55e' },
-  { name: 'Dominant 9th', suffix: '9', formula: ['1', '3', '5', '♭7', '9'], semitones: [0, 4, 7, 10, 14], color: '#a855f7' },
-  { name: 'Minor 9th', suffix: 'm9', formula: ['1', '♭3', '5', '♭7', '9'], semitones: [0, 3, 7, 10, 14], color: '#6366f1' },
-  // 13th chords conventionally drop the 11th (it clashes with the 3rd) --
-  // this is the standard practical spelling, not a simplification of it.
-  { name: 'Major 13th', suffix: 'Δ13', formula: ['1', '3', '5', '7', '9', '13'], semitones: [0, 4, 7, 11, 14, 21], color: '#22c55e' },
-  { name: 'Dominant 13th', suffix: '13', formula: ['1', '3', '5', '♭7', '9', '13'], semitones: [0, 4, 7, 10, 14, 21], color: '#a855f7' },
-  { name: 'Minor 13th', suffix: 'm13', formula: ['1', '♭3', '5', '♭7', '9', '13'], semitones: [0, 3, 7, 10, 14, 21], color: '#6366f1' },
-];
 
 function playTriadPreview(pitchClasses) {
   playChordMidi(pitchClasses.map((pc) => REFERENCE_OCTAVE + pc));

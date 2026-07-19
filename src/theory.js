@@ -36,18 +36,45 @@ export function noteNameToPitchClass(name) {
   return i;
 }
 
-const TRIAD_INTERVALS = {
-  major: [0, 4, 7],
-  minor: [0, 3, 7],
-  diminished: [0, 3, 6],
-  augmented: [0, 4, 8],
-};
+// Semitone offsets from the root for each named chord formula, plus the
+// chord-symbol suffix a guitarist would actually read on a published lead
+// sheet (root name + suffix, e.g. root "C" + suffix "m7" -> "Cm7").
+// Suffixes use the actual glyphs music publishers print, not spelled-out
+// words: ° for diminished, + for augmented, Δ for major (the triangle),
+// ø for half-diminished -- "dim"/"aug"/"maj" are informal text substitutes
+// for these, not what actually gets engraved. Independent of any specific
+// root -- "1-3-5" is Major everywhere, that's the whole point of a formula.
+// The single source of truth for "what notes make up a chord type" --
+// spellings.html's formula table and anything else that needs a chord's
+// intervals (rather than a specific key's diatonic triads, which come from
+// harmonizeMajorScale()'s scale-stacking instead) both read this list.
+export const CHORD_FORMULAS = [
+  { name: 'Major', suffix: '', formula: ['1', '3', '5'], semitones: [0, 4, 7], color: '#22c55e' },
+  { name: 'Minor', suffix: 'm', formula: ['1', '♭3', '5'], semitones: [0, 3, 7], color: '#6366f1' },
+  { name: 'Diminished', suffix: '°', formula: ['1', '♭3', '♭5'], semitones: [0, 3, 6], color: '#ef4444' },
+  { name: 'Augmented', suffix: '+', formula: ['1', '3', '♯5'], semitones: [0, 4, 8], color: '#f59e0b' },
+  { name: 'Sus2', suffix: 'sus2', formula: ['1', '2', '5'], semitones: [0, 2, 7], color: '#06b6d4' },
+  { name: 'Sus4', suffix: 'sus4', formula: ['1', '4', '5'], semitones: [0, 5, 7], color: '#06b6d4' },
+  { name: 'Major 7th', suffix: 'Δ7', formula: ['1', '3', '5', '7'], semitones: [0, 4, 7, 11], color: '#22c55e' },
+  { name: 'Dominant 7th', suffix: '7', formula: ['1', '3', '5', '♭7'], semitones: [0, 4, 7, 10], color: '#a855f7' },
+  { name: 'Minor 7th', suffix: 'm7', formula: ['1', '♭3', '5', '♭7'], semitones: [0, 3, 7, 10], color: '#6366f1' },
+  { name: 'Half-Diminished 7th', suffix: 'ø7', formula: ['1', '♭3', '♭5', '♭7'], semitones: [0, 3, 6, 10], color: '#ef4444' },
+  { name: 'Diminished 7th', suffix: '°7', formula: ['1', '♭3', '♭5', '𝄫7'], semitones: [0, 3, 6, 9], color: '#ef4444' },
+  { name: 'Major 9th', suffix: 'Δ9', formula: ['1', '3', '5', '7', '9'], semitones: [0, 4, 7, 11, 14], color: '#22c55e' },
+  { name: 'Dominant 9th', suffix: '9', formula: ['1', '3', '5', '♭7', '9'], semitones: [0, 4, 7, 10, 14], color: '#a855f7' },
+  { name: 'Minor 9th', suffix: 'm9', formula: ['1', '♭3', '5', '♭7', '9'], semitones: [0, 3, 7, 10, 14], color: '#6366f1' },
+  // 13th chords conventionally drop the 11th (it clashes with the 3rd) --
+  // this is the standard practical spelling, not a simplification of it.
+  { name: 'Major 13th', suffix: 'Δ13', formula: ['1', '3', '5', '7', '9', '13'], semitones: [0, 4, 7, 11, 14, 21], color: '#22c55e' },
+  { name: 'Dominant 13th', suffix: '13', formula: ['1', '3', '5', '♭7', '9', '13'], semitones: [0, 4, 7, 10, 14, 21], color: '#a855f7' },
+  { name: 'Minor 13th', suffix: 'm13', formula: ['1', '♭3', '5', '♭7', '9', '13'], semitones: [0, 3, 7, 10, 14, 21], color: '#6366f1' },
+];
 
-/** Build a triad's three pitch classes on any root, independent of any key/scale context. */
-export function buildTriad(rootPc, quality) {
-  const intervals = TRIAD_INTERVALS[quality];
-  if (!intervals) throw new Error(`Unknown triad quality: ${quality}`);
-  return intervals.map((semitones) => (rootPc + semitones) % 12);
+/** Build a chord's pitch classes on any root from its formula name (see CHORD_FORMULAS), independent of any key/scale context. */
+export function buildChord(rootPc, formulaName) {
+  const formula = CHORD_FORMULAS.find((f) => f.name === formulaName);
+  if (!formula) throw new Error(`Unknown chord formula: ${formulaName}`);
+  return formula.semitones.map((semitones) => (rootPc + semitones) % 12);
 }
 
 /**

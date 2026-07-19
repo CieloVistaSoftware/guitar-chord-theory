@@ -140,7 +140,7 @@
     import { renderFormulaTable, renderDiatonicTable } from './src/chord-spellings.js';
 
     window.WB = WB;
-    WB.scan(document.body);
+    await WB.scan(document.body);
 
     themecontrol(document.getElementById('theme-control'), { target: 'html', default: 'dark' });
 

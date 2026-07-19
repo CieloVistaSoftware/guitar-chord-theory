@@ -64,9 +64,9 @@ function msPerChord(bpm) {
 /**
  * @param container element to render into
  * @param onChordSelected (detail) => void -- forwards to fretboard.showChordShape(...)
- * @param scanFn (element) => void -- WB.scan(element), enhances the freshly-rendered <wb-card>
+ * @param scanFn (element) => Promise -- WB.scan(element), enhances the freshly-rendered <wb-card>
  */
-export function renderSongs(container, onChordSelected, scanFn) {
+export async function renderSongs(container, onChordSelected, scanFn) {
   let currentSongIndex = 0;
   let currentSectionIndex = 0;
   let songKey = 'C';
@@ -143,7 +143,7 @@ export function renderSongs(container, onChordSelected, scanFn) {
     playBtn.textContent = '▶ Play song';
   }
 
-  function render() {
+  async function render() {
     const song = SONGS[currentSongIndex];
     const section = currentSection();
 
@@ -185,17 +185,17 @@ export function renderSongs(container, onChordSelected, scanFn) {
       </wb-card>
     `;
 
-    container.querySelector('.cs-song-picker-select').addEventListener('change', (e) => {
+    container.querySelector('.cs-song-picker-select').addEventListener('change', async (e) => {
       currentSongIndex = Number(e.target.value);
       currentSectionIndex = 0;
       songKey = 'C'; // fresh key whenever you switch songs
-      render();
+      await render();
     });
 
     container.querySelectorAll('.cs-song__section-btn').forEach((btn) => {
-      btn.addEventListener('click', () => {
+      btn.addEventListener('click', async () => {
         currentSectionIndex = Number(btn.dataset.section);
-        render();
+        await render();
       });
     });
 
@@ -227,8 +227,12 @@ export function renderSongs(container, onChordSelected, scanFn) {
     // scan() only enhances DESCENDANTS of the element it's given (it never
     // processes the root itself), so it must be called on the wb-card's
     // *parent* -- passing cardEl directly would silently never enhance it.
-    scanFn(container);
+    // scan() is async (it dynamically imports each behavior module), so
+    // this must be awaited -- code after render() that depends on the
+    // card's behaviors (data-clickable, data-hoverable, etc.) being fully
+    // attached would otherwise race against that import.
+    await scanFn(container);
   }
 
-  render();
+  await render();
 }

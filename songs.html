@@ -132,7 +132,7 @@
     import { wireLabelModeToggle } from './src/label-mode-toggle.js';
 
     window.WB = WB;
-    WB.scan(document.body);
+    await WB.scan(document.body);
 
     wireFullscreenToggle(document.querySelector('.gt-fullscreen-btn'), document.querySelector('.gt-fretboard-card'));
     document.querySelectorAll('.gt-info-btn').forEach(wireInfoTooltip);
@@ -142,7 +142,7 @@
 
     const fretboard = document.querySelector('gt-fretboard');
     wireLabelModeToggle(document.querySelector('.gt-label-mode-btn'), fretboard);
-    renderSongs(
+    await renderSongs(
       document.getElementById('songs-list'),
       (detail) => {
         fretboard.showChordShape(detail.name, detail.positionsByInversion, detail.inversionSummary, detail.showNoteNames);

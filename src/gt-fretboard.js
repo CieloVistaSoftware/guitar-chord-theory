@@ -16,9 +16,11 @@ const FRET_WIDTH = 60;
 const STRING_GAP = 40;
 const FRETBOARD_PAD_LEFT = 75; // wide enough that the open-string dot never overlaps the string-name label
 const FRETBOARD_PAD_TOP = 20;
-const FRETBOARD_PAD_BOTTOM = 8; // 0.5rem of breathing room below the fret-number row
 const DOT_RADIUS = 15;
 const OPEN_DOT_X = FRETBOARD_PAD_LEFT - 30;
+const NOTE_TO_FRET_NUMBER_GAP = 8; // 0.5rem -- fret numbers always sit exactly this far under the lowest note row
+const FRET_NUMBER_FONT_SIZE = 12;
+const FRETBOARD_PAD_BOTTOM = 8; // 0.5rem of breathing room below the fret-number row
 
 const INTERVAL_COLORS = {
   R: '#ef4444',
@@ -104,7 +106,7 @@ export class GTFretboard extends HTMLElement {
     const rootPc = noteNameToPitchClass(this.rootNote);
     const frets = this.fretCount;
     const width = FRETBOARD_PAD_LEFT + frets * FRET_WIDTH + 20;
-    const height = FRETBOARD_PAD_TOP + 5 * STRING_GAP + 20 + FRETBOARD_PAD_BOTTOM;
+    const height = this._fretNumberY() + FRET_NUMBER_FONT_SIZE + FRETBOARD_PAD_BOTTOM;
 
     const INVERSIONS = [
       { key: 'root', label: 'Root Position' },
@@ -155,16 +157,26 @@ export class GTFretboard extends HTMLElement {
     });
   }
 
+  // Top edge of the fret-number row: exactly NOTE_TO_FRET_NUMBER_GAP (0.5rem)
+  // below the bottom of the lowest note dot (low E's row, plus its radius).
+  _fretNumberY() {
+    return FRETBOARD_PAD_TOP + 5 * STRING_GAP + DOT_RADIUS + NOTE_TO_FRET_NUMBER_GAP;
+  }
+
   _renderFrets(frets, width, height) {
     let out = '';
+    const fretNumberY = this._fretNumberY();
     for (let f = 0; f <= frets; f++) {
       const x = FRETBOARD_PAD_LEFT + f * FRET_WIDTH;
       const isNut = f === 0;
       out += `<line x1="${x}" y1="${FRETBOARD_PAD_TOP}" x2="${x}" y2="${FRETBOARD_PAD_TOP + 5 * STRING_GAP}"
                      stroke="${isNut ? '#e5e7eb' : '#6b7280'}" stroke-width="${isNut ? 6 : 2}" />`;
       if (f > 0) {
-        out += `<text x="${x - FRET_WIDTH / 2}" y="${FRETBOARD_PAD_TOP + 5 * STRING_GAP + 20}"
-                       text-anchor="middle" font-size="12" fill="#9ca3af">${f}</text>`;
+        // dominant-baseline="hanging" anchors the text's TOP edge to y, so
+        // the gap above it is exactly NOTE_TO_FRET_NUMBER_GAP, not an
+        // eyeballed baseline offset that shifts with font metrics.
+        out += `<text x="${x - FRET_WIDTH / 2}" y="${fretNumberY}" dominant-baseline="hanging"
+                       text-anchor="middle" font-size="${FRET_NUMBER_FONT_SIZE}" fill="#9ca3af">${f}</text>`;
       }
     }
     return out;

@@ -1,8 +1,10 @@
 /**
  * Pinch/scroll zoom-in-place for an element -- scales the target visually
- * without touching the container's box size (that's what the corner-drag
- * resize handle is for). Content beyond the container's edges is clipped,
- * like zooming into a photo, not panned.
+ * AND grows/shrinks its resizable ancestor's box by the same ratio, so
+ * zooming in reveals more of the fretboard instead of just clipping at the
+ * edges. Needs a wb-starter resizable ancestor (x-behavior="resizable")
+ * exposing element.wbResizable.getSize()/setSize() -- if there isn't one,
+ * the box-growing step is simply skipped and only the image scales.
  */
 const MIN_SCALE = 0.5;
 const MAX_SCALE = 3;
@@ -10,8 +12,24 @@ const MAX_SCALE = 3;
 export function wirePinchZoom(container, target) {
   let scale = 1;
 
+  // Looked up fresh on every use, not captured once at wire-time -- WB.scan()
+  // applies x-behavior="resizable" asynchronously, so the ancestor may not
+  // have its wbResizable API attached yet at the moment this function runs.
+  const resizableEl = () => container.closest('.wb-resizable');
+
   const applyScale = () => {
     target.style.transform = `scale(${scale})`;
+  };
+
+  // Grows/shrinks the resizable box by `ratio` (relative to its current
+  // actual size, not a remembered baseline) so it composes correctly
+  // whether the box just came from a wheel-zoom tick or a manual corner
+  // drag -- resizable.js's own setSize() clamps to its min/max-width.
+  const growBoxByRatio = (ratio) => {
+    const el = resizableEl();
+    if (!el?.wbResizable || ratio === 1 || !isFinite(ratio)) return;
+    const { width, height } = el.wbResizable.getSize();
+    el.wbResizable.setSize(width * ratio, height * ratio);
   };
 
   // Trackpad pinch and Ctrl+scroll both arrive as wheel events with
@@ -19,13 +37,16 @@ export function wirePinchZoom(container, target) {
   container.addEventListener('wheel', (e) => {
     if (!e.ctrlKey) return;
     e.preventDefault();
+    const oldScale = scale;
     scale = Math.min(MAX_SCALE, Math.max(MIN_SCALE, scale - e.deltaY * 0.01));
     applyScale();
+    growBoxByRatio(scale / oldScale);
   }, { passive: false });
 
-  // Two-finger touch pinch.
+  // Two-finger touch pinch -- same in-place zoom + box growth, gesture-scoped.
   let pinchStartDistance = null;
   let pinchStartScale = 1;
+  let pinchStartBoxSize = null;
 
   const distance = (touches) => {
     const [a, b] = touches;
@@ -36,6 +57,7 @@ export function wirePinchZoom(container, target) {
     if (e.touches.length === 2) {
       pinchStartDistance = distance(e.touches);
       pinchStartScale = scale;
+      pinchStartBoxSize = resizableEl()?.wbResizable?.getSize() || null;
     }
   }, { passive: true });
 
@@ -45,6 +67,10 @@ export function wirePinchZoom(container, target) {
       const ratio = distance(e.touches) / pinchStartDistance;
       scale = Math.min(MAX_SCALE, Math.max(MIN_SCALE, pinchStartScale * ratio));
       applyScale();
+      const el = resizableEl();
+      if (el?.wbResizable && pinchStartBoxSize) {
+        el.wbResizable.setSize(pinchStartBoxSize.width * ratio, pinchStartBoxSize.height * ratio);
+      }
     }
   }, { passive: false });
 

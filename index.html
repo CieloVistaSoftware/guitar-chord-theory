@@ -172,7 +172,7 @@
     import { wireLabelModeToggle } from './src/label-mode-toggle.js';
 
     window.WB = WB;
-    WB.scan(document.body);
+    await WB.scan(document.body);
 
     wireFullscreenToggle(document.querySelector('.gt-fullscreen-btn'), document.querySelector('.gt-fretboard-card'));
     document.querySelectorAll('.gt-info-btn').forEach(wireInfoTooltip);
