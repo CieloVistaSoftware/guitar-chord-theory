@@ -1,0 +1,52 @@
+.gt-info-btn {
+  position: relative;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 2.75rem; /* 44px -- real touch target, not just a small hover dot */
+  height: 2.75rem;
+  margin-left: 0.2rem;
+  vertical-align: middle;
+  border: 1px solid var(--border-color, #4b5563);
+  border-radius: 50%;
+  background: transparent;
+  color: var(--text-secondary, #9ca3af);
+  font-size: 1rem;
+  line-height: 1;
+  cursor: help;
+}
+
+.gt-info-btn:hover,
+.gt-info-btn:focus-visible,
+.gt-info-btn.is-open {
+  color: var(--text-primary, #f9fafb);
+  border-color: var(--primary, #6366f1);
+}
+
+.gt-info-tooltip {
+  display: none;
+  position: absolute;
+  top: 130%;
+  left: 0;
+  z-index: 10;
+  width: 320px;
+  max-width: min(80vw, 320px);
+  padding: 0.75rem 1rem;
+  border: 1px solid var(--border-color, #374151);
+  border-radius: var(--radius-md, 8px);
+  background: var(--bg-secondary, #1f2937);
+  color: var(--text-primary, #f9fafb);
+  font-size: 0.85rem;
+  font-weight: 400;
+  text-align: left;
+  line-height: 1.5;
+  box-shadow: 0 8px 20px rgba(0, 0, 0, 0.35);
+}
+
+/* Desktop: hover/focus reveals it for free. Touch devices have no hover, so
+   a tap toggles the .is-open class instead (wired in info-tooltip.js). */
+.gt-info-btn:hover .gt-info-tooltip,
+.gt-info-btn:focus-visible .gt-info-tooltip,
+.gt-info-btn.is-open .gt-info-tooltip {
+  display: block;
+}

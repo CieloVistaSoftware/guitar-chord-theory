@@ -9,6 +9,10 @@ gt-fretboard {
 }
 
 .gt-fullscreen-btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-height: 2.75rem; /* 44px touch target */
   border: 1px solid var(--border-color, #4b5563);
   border-radius: 999px;
   background: transparent;
@@ -68,6 +72,36 @@ gt-fretboard {
    with the dots' own pointer cursor for note playback. */
 .gt-fretboard-card main {
   cursor: zoom-in;
+}
+
+/* wb-starter's resizable behavior sets the handle to a 12px hit target
+   inline -- fine for a mouse, too small to reliably grab on a touchscreen.
+   Grow the tappable area to a real 32px touch target while keeping the
+   original small visual dot (via ::after) so the corner doesn't look
+   oversized. !important overrides the inline styles resizable.js sets. */
+.gt-fretboard-card .wb-resizable__handle--se {
+  width: 32px !important;
+  height: 32px !important;
+  right: -14px !important;
+  bottom: -14px !important;
+  background: transparent !important;
+  border: none !important;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.gt-fretboard-card .wb-resizable__handle--se::after {
+  content: '';
+  width: 12px;
+  height: 12px;
+  border-radius: 50%;
+  background-color: rgba(255, 255, 255, 0.2);
+  border: 1px solid rgba(255, 255, 255, 0.4);
+}
+
+.gt-fretboard-card .wb-resizable__handle--se:hover::after {
+  background-color: var(--primary, #6366f1);
 }
 
 .gt-fretboard__mode-switch {

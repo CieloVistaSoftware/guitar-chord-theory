@@ -11,6 +11,7 @@
   <link rel="stylesheet" href="node_modules/wb-starter/src/styles/safari-fixes.css">
   <link rel="stylesheet" href="src/gt-fretboard.css">
   <link rel="stylesheet" href="src/gt-diatonic-chords.css">
+  <link rel="stylesheet" href="src/info-tooltip.css">
   <style>
     body {
       max-width: 900px;
@@ -72,51 +73,6 @@
       font-size: 0.9rem;
       font-weight: 600;
       cursor: pointer;
-    }
-    .gt-info-btn {
-      position: relative;
-      display: inline-flex;
-      align-items: center;
-      justify-content: center;
-      width: 1.35rem;
-      height: 1.35rem;
-      margin-left: 0.4rem;
-      vertical-align: middle;
-      border: 1px solid var(--border-color, #4b5563);
-      border-radius: 50%;
-      background: transparent;
-      color: var(--text-secondary, #9ca3af);
-      font-size: 0.85rem;
-      line-height: 1;
-      cursor: help;
-    }
-    .gt-info-btn:hover,
-    .gt-info-btn:focus-visible {
-      color: var(--text-primary, #f9fafb);
-      border-color: var(--primary, #6366f1);
-    }
-    .gt-info-tooltip {
-      display: none;
-      position: absolute;
-      top: 130%;
-      left: 0;
-      z-index: 10;
-      width: 320px;
-      max-width: min(80vw, 320px);
-      padding: 0.75rem 1rem;
-      border: 1px solid var(--border-color, #374151);
-      border-radius: var(--radius-md, 8px);
-      background: var(--bg-secondary, #1f2937);
-      color: var(--text-primary, #f9fafb);
-      font-size: 0.85rem;
-      font-weight: 400;
-      text-align: left;
-      line-height: 1.5;
-      box-shadow: 0 8px 20px rgba(0, 0, 0, 0.35);
-    }
-    .gt-info-btn:hover .gt-info-tooltip,
-    .gt-info-btn:focus-visible .gt-info-tooltip {
-      display: block;
     }
     .gt-nav-links {
       display: flex;
@@ -209,11 +165,13 @@
     import { NOTE_NAMES } from './src/theory.js';
     import { themecontrol } from 'wb-starter/wb-viewmodels/themecontrol.js';
     import { wireFullscreenToggle } from './src/fullscreen-toggle.js';
+    import { wireInfoTooltip } from './src/info-tooltip.js';
 
     window.WB = WB;
     WB.scan(document.body);
 
     wireFullscreenToggle(document.querySelector('.gt-fullscreen-btn'), document.querySelector('.gt-fretboard-card'));
+    document.querySelectorAll('.gt-info-btn').forEach(wireInfoTooltip);
 
     themecontrol(document.getElementById('theme-control'), { target: 'html', default: 'dark' });
 
