@@ -128,7 +128,7 @@ export class GTFretboard extends HTMLElement {
 
     this.innerHTML = `
       ${controls}
-      <svg class="gt-fretboard__svg" viewBox="0 0 ${width} ${height}" role="img"
+      <svg class="gt-fretboard__svg" viewBox="0 0 ${width} ${height}" width="${width}" height="${height}" role="img"
            aria-label="${this._chord ? `Guitar fretboard showing ${this._chord.name}'s ${this._inversion === 'root' ? 'root position' : this._inversion === 'first' ? '1st inversion' : '2nd inversion'} shape` : `Guitar fretboard showing ${this.rootNote} major scale intervals`}">
         ${this._renderFrets(frets, width, height)}
         ${this._renderStrings(frets, width)}

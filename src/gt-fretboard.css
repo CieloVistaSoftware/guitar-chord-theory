@@ -28,20 +28,39 @@ gt-fretboard {
 }
 
 .gt-fretboard-card:fullscreen {
+  position: relative;
   display: flex;
-  flex-direction: column;
+  align-items: center;
   justify-content: center;
   padding: 2rem;
   background: var(--bg-primary, #111827);
 }
 
+/* The exit-fullscreen button floats over a corner instead of sitting in a
+   header bar above the fretboard -- otherwise centering header+main as one
+   flex block shifts the fretboard itself above true center. */
+.gt-fretboard-card:fullscreen header {
+  position: absolute;
+  top: 1rem;
+  right: 1rem;
+  padding: 0 !important;
+  background: transparent !important;
+  border: none !important;
+}
+
 .gt-fretboard-card:fullscreen main {
   display: flex;
   align-items: center;
+  justify-content: center;
+  width: 100%;
+  height: 100%;
 }
 
 .gt-fretboard-card:fullscreen .gt-fretboard__svg {
-  max-height: 80vh;
+  width: auto;
+  height: auto;
+  max-width: 95vw;
+  max-height: 85vh;
 }
 
 /* Clicking the fretboard itself (not just the small button) also toggles
