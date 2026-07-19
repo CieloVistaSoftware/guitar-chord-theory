@@ -103,10 +103,6 @@
   <div class="gt-controls">
     <button type="button" id="audio-toggle" class="gt-audio-toggle" aria-pressed="false">🔇 Turn on audio</button>
     <div id="theme-control"></div>
-    <label class="gt-key-card">
-      Key
-      <select id="key-select"></select>
-    </label>
   </div>
 
   <section>
@@ -123,6 +119,11 @@
     <wb-card class="gt-fretboard-card" data-clickable="false" data-hoverable="false"
              x-behavior="resizable" data-min-width="400" data-min-height="150" data-aspect-ratio>
       <header>
+        <button type="button" class="gt-label-mode-btn" aria-pressed="false">🔢 Numbers</button>
+        <label class="gt-key-card">
+          Key
+          <select id="key-select"></select>
+        </label>
         <button type="button" class="gt-fullscreen-btn" aria-pressed="false">⛶ Fullscreen</button>
       </header>
       <main>
@@ -167,17 +168,21 @@
     import { themecontrol } from 'wb-starter/wb-viewmodels/themecontrol.js';
     import { wireFullscreenToggle } from './src/fullscreen-toggle.js';
     import { wireInfoTooltip } from './src/info-tooltip.js';
+    import { wirePinchZoom } from './src/pinch-zoom.js';
+    import { wireLabelModeToggle } from './src/label-mode-toggle.js';
 
     window.WB = WB;
     WB.scan(document.body);
 
     wireFullscreenToggle(document.querySelector('.gt-fullscreen-btn'), document.querySelector('.gt-fretboard-card'));
     document.querySelectorAll('.gt-info-btn').forEach(wireInfoTooltip);
+    wirePinchZoom(document.querySelector('.gt-fretboard-card main'), document.querySelector('gt-fretboard'));
 
     themecontrol(document.getElementById('theme-control'), { target: 'html', default: 'dark' });
 
     const fretboard = document.querySelector('gt-fretboard');
     const diatonicChords = document.querySelector('gt-diatonic-chords');
+    wireLabelModeToggle(document.querySelector('.gt-label-mode-btn'), fretboard);
     document.addEventListener('gt:chord-shape-selected', (e) => {
       fretboard.showChordShape(e.detail.name, e.detail.positionsByInversion, e.detail.inversionSummary, e.detail.showNoteNames);
     });

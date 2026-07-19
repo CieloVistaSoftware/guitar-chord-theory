@@ -1,14 +1,19 @@
 gt-fretboard {
   display: block;
+  transform-origin: center center;
 }
 
 .gt-fretboard-card header {
   display: flex;
-  justify-content: flex-end;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.5rem 0.75rem;
   padding: 0.6rem 0.75rem !important;
 }
 
-.gt-fullscreen-btn {
+.gt-fullscreen-btn,
+.gt-label-mode-btn {
   display: inline-flex;
   align-items: center;
   justify-content: center;
@@ -25,7 +30,9 @@ gt-fretboard {
 }
 
 .gt-fullscreen-btn:hover,
-.gt-fullscreen-btn[aria-pressed="true"] {
+.gt-fullscreen-btn[aria-pressed="true"],
+.gt-label-mode-btn:hover,
+.gt-label-mode-btn[aria-pressed="true"] {
   background: var(--primary, #6366f1);
   border-color: var(--primary, #6366f1);
   color: #fff;
@@ -47,6 +54,8 @@ gt-fretboard {
   position: absolute;
   top: 1rem;
   right: 1rem;
+  max-width: calc(100vw - 2rem);
+  justify-content: flex-end;
   padding: 0 !important;
   background: transparent !important;
   border: none !important;
@@ -69,9 +78,16 @@ gt-fretboard {
 
 /* Clicking the fretboard itself (not just the small button) also toggles
    fullscreen -- cursor:zoom-in on the svg signals that without competing
-   with the dots' own pointer cursor for note playback. */
+   with the dots' own pointer cursor for note playback. Pinch/Ctrl+scroll
+   zoom (pinch-zoom.js) scales the <gt-fretboard> element itself in place,
+   independent of the resizable container's box size; overflow:hidden clips
+   it like zooming a photo rather than panning; touch-action:none stops the
+   browser's own native page-pinch from competing with our two-finger
+   handler over this region. */
 .gt-fretboard-card main {
   cursor: zoom-in;
+  overflow: hidden;
+  touch-action: none;
 }
 
 /* wb-starter's resizable behavior sets the handle to a 12px hit target

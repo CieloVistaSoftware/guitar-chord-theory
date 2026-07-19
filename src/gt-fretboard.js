@@ -9,7 +9,7 @@
  * Light DOM, no build step -- matches wb-starter's own component
  * conventions (composition over inheritance, no Shadow DOM).
  */
-import { STANDARD_TUNING, STANDARD_TUNING_NAMES, STANDARD_TUNING_MIDI, intervalAt, noteNameToPitchClass } from './theory.js';
+import { STANDARD_TUNING, STANDARD_TUNING_NAMES, STANDARD_TUNING_MIDI, intervalAt, noteNameToPitchClass, pitchClassName } from './theory.js';
 import { playMidi } from './audio.js';
 
 const FRET_WIDTH = 60;
@@ -39,6 +39,7 @@ export class GTFretboard extends HTMLElement {
     super();
     this._chord = null; // null = full-scale mode; otherwise { name, positionsByInversion, inversionSummary, showNoteNames }
     this._inversion = 'root'; // 'root' | 'first' | 'second' -- which voicing of the selected chord to show
+    this._labelMode = 'number'; // 'number' | 'note' -- how scale-view dots are labeled
   }
 
   connectedCallback() {
@@ -70,6 +71,12 @@ export class GTFretboard extends HTMLElement {
    */
   showChordShape(name, positionsByInversion, inversionSummary, showNoteNames) {
     this._chord = { name, positionsByInversion, inversionSummary, showNoteNames };
+    this.render();
+  }
+
+  /** Switches the scale-view dot labels between scale-degree numbers and real note names. */
+  setLabelMode(mode) {
+    this._labelMode = mode;
     this.render();
   }
 
@@ -223,7 +230,8 @@ export class GTFretboard extends HTMLElement {
         const x = FRETBOARD_PAD_LEFT + f * FRET_WIDTH - FRET_WIDTH / 2;
         const color = INTERVAL_COLORS[iv.short];
         const midi = STANDARD_TUNING_MIDI[s] + f;
-        out += this._dotSvg({ x, y, label: iv.degree, color, midi, bare: false });
+        const label = this._labelMode === 'note' ? pitchClassName(openPc + f) : iv.degree;
+        out += this._dotSvg({ x, y, label, color, midi, bare: false });
       }
     }
     return out;
