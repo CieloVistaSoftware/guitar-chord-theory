@@ -8,8 +8,5 @@
   },
   "keywords": ["guitar", "music-theory", "chords", "intervals"],
   "author": "",
-  "license": "MIT",
-  "dependencies": {
-    "wb-starter": "^3.0.0"
-  }
+  "license": "MIT"
 }
