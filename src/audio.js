@@ -69,11 +69,14 @@ function buildPluckBuffer(frequency, duration, decay) {
 /**
  * @param brightness lowpass cutoff (Hz) -- lower = warmer/rounder (bass
  * strings), higher = brighter/more pick attack (treble strings).
+ * @param decay Karplus-Strong per-cycle decay (closer to 1 = slower internal
+ * decay, i.e. more audible sustain) -- must be paired with a long enough
+ * `duration` or the tone dies out before the buffer/envelope ends anyway.
  */
-export function playMidi(midi, duration = 1.4, peakGain = 0.3, brightness = 3200) {
+export function playMidi(midi, duration = 1.4, peakGain = 0.3, brightness = 3200, decay = 0.997) {
   if (!enabled || !ctx) return;
   const frequency = midiToFrequency(midi);
-  const buffer = buildPluckBuffer(frequency, duration, 0.996);
+  const buffer = buildPluckBuffer(frequency, duration, decay);
 
   const source = ctx.createBufferSource();
   source.buffer = buffer;
@@ -100,13 +103,16 @@ export function playMidi(midi, duration = 1.4, peakGain = 0.3, brightness = 3200
  * warmer (lower-brightness) tone -- otherwise a single low bass note is
  * easy to lose under five other simultaneous plucks, and different
  * inversions (which only really differ in that one bass note) end up
- * sounding identical.
+ * sounding identical. A chord rings out long after the strum, like a real
+ * acoustic guitar left to sustain -- both a long duration AND a slower
+ * decay rate (0.9985), since a long duration alone just pads the tail with
+ * silence once the tone has already died out.
  */
 export function playChordMidi(midiNotes, strumSeconds = 0.06) {
   midiNotes.forEach((midi, i) => {
     const isBass = i === 0;
     setTimeout(
-      () => playMidi(midi, isBass ? 1.8 : 1.3, isBass ? 0.35 : 0.22, isBass ? 2200 : 3400),
+      () => playMidi(midi, isBass ? 4.5 : 3.5, isBass ? 0.35 : 0.22, isBass ? 2200 : 3400, 0.9985),
       i * strumSeconds * 1000
     );
   });
