@@ -127,7 +127,14 @@
   <section>
     <h2>The C major scale, string by string</h2>
     <p>Click any chord below and its shape shows up here.</p>
-    <gt-fretboard root="C" frets="12"></gt-fretboard>
+    <wb-card class="gt-fretboard-card" data-clickable="false" data-hoverable="false">
+      <header>
+        <button type="button" class="gt-fullscreen-btn" aria-pressed="false">⛶ Fullscreen</button>
+      </header>
+      <main>
+        <gt-fretboard root="C" frets="12"></gt-fretboard>
+      </main>
+    </wb-card>
 
     <h2>
       Songs
@@ -160,9 +167,12 @@
     import { toggleAudio } from './src/audio.js';
     import { themecontrol } from 'wb-starter/wb-viewmodels/themecontrol.js';
     import { renderSongs } from './src/songs.js';
+    import { wireFullscreenToggle } from './src/fullscreen-toggle.js';
 
     window.WB = WB;
     WB.scan(document.body);
+
+    wireFullscreenToggle(document.querySelector('.gt-fullscreen-btn'), document.querySelector('.gt-fretboard-card'));
 
     themecontrol(document.getElementById('theme-control'), { target: 'html', default: 'dark' });
 

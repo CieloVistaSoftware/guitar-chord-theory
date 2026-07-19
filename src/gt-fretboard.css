@@ -2,6 +2,48 @@ gt-fretboard {
   display: block;
 }
 
+.gt-fretboard-card header {
+  display: flex;
+  justify-content: flex-end;
+  padding: 0.6rem 0.75rem !important;
+}
+
+.gt-fullscreen-btn {
+  border: 1px solid var(--border-color, #4b5563);
+  border-radius: 999px;
+  background: transparent;
+  color: var(--text-primary, #f9fafb);
+  padding: 0.35rem 0.9rem;
+  font-family: inherit;
+  font-size: 0.85rem;
+  font-weight: 600;
+  cursor: pointer;
+}
+
+.gt-fullscreen-btn:hover,
+.gt-fullscreen-btn[aria-pressed="true"] {
+  background: var(--primary, #6366f1);
+  border-color: var(--primary, #6366f1);
+  color: #fff;
+}
+
+.gt-fretboard-card:fullscreen {
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  padding: 2rem;
+  background: var(--bg-primary, #111827);
+}
+
+.gt-fretboard-card:fullscreen main {
+  display: flex;
+  align-items: center;
+}
+
+.gt-fretboard-card:fullscreen .gt-fretboard__svg {
+  max-height: 80vh;
+}
+
 .gt-fretboard__mode-switch {
   display: inline-flex;
   border: 1px solid var(--border-color, #4b5563);
