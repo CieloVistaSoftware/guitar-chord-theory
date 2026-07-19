@@ -8,10 +8,9 @@
  * Songs are stored as Nashville-number formulas (scale degrees, not fixed
  * chord names) so the song's own "Play in" key selector can transpose it
  * live via the same harmonizeMajorScale() math the rest of the app uses.
- * In the song's original key of C every resulting chord has a verified
- * fingering; transposing to another key may land on a chord we haven't
- * hand-verified a shape for yet -- that chip just says so, same honesty
- * the lesson and spellings pages use for out-of-C chords.
+ * Every resulting chord in every key is playable -- chord-shape-builder.js
+ * falls back to deriving a fingering from the chord's own spelling for
+ * anything outside C major's hand-verified shapes.
  *
  * Each song has one or more named sections (Verse/Chorus) -- only added
  * where there's a genuine, well-known harmonic difference between them;
@@ -23,7 +22,7 @@
  * rather than one fixed guessed number.
  */
 import { NOTE_NAMES, harmonizeMajorScale, noteNameToPitchClass } from './theory.js';
-import { buildChordShapeEventDetail, playChordAudio, SHAPES_BY_INVERSION } from './chord-shape-builder.js';
+import { buildChordShapeEventDetail, playChordAudio } from './chord-shape-builder.js';
 import { setAudioEnabled } from './audio.js';
 
 const BARS_PER_CHORD = 2; // 4/4 time -- a common, simple practice pattern for these progressions
@@ -89,11 +88,9 @@ export function renderSongs(container, onChordSelected, scanFn) {
     const scaleChords = currentChords();
     chordsEl.innerHTML = section.degrees.map((degree, i) => {
       const c = scaleChords[degree - 1];
-      const hasShape = !!SHAPES_BY_INVERSION.root[c.chordName];
       return `
-        <button type="button" class="cs-song-chip ${hasShape ? '' : 'cs-song-chip--no-shape'}"
-                data-index="${i}" aria-label="Play ${c.chordName} from ${song.title}"
-                title="${hasShape ? '' : 'No fingering chart yet for ' + c.chordName}">
+        <button type="button" class="cs-song-chip"
+                data-index="${i}" aria-label="Play ${c.chordName} from ${song.title}">
           ${c.chordName}
         </button>`;
     }).join('');
@@ -101,7 +98,6 @@ export function renderSongs(container, onChordSelected, scanFn) {
     chordsEl.querySelectorAll('.cs-song-chip').forEach((chip, i) => {
       chip.addEventListener('click', () => {
         const c = scaleChords[section.degrees[i] - 1];
-        if (!SHAPES_BY_INVERSION.root[c.chordName]) return; // no verified shape/audio for this transposed chord yet
 
         // First click on a chip always starts fresh on interval labels; only
         // a second (or fourth, sixth...) click on that same chip flips to
@@ -111,7 +107,7 @@ export function renderSongs(container, onChordSelected, scanFn) {
         selectedByChip.set(chip, showNoteNames);
 
         onChordSelected(buildChordShapeEventDetail(c, showNoteNames));
-        playChordAudio(c.chordName);
+        playChordAudio(c);
       });
     });
   }
@@ -135,10 +131,8 @@ export function renderSongs(container, onChordSelected, scanFn) {
       chips[i].classList.add('is-playing');
 
       const c = scaleChords[section.degrees[i] - 1];
-      if (SHAPES_BY_INVERSION.root[c.chordName]) {
-        onChordSelected(buildChordShapeEventDetail(c, false));
-        playChordAudio(c.chordName);
-      }
+      onChordSelected(buildChordShapeEventDetail(c, false));
+      playChordAudio(c);
 
       await new Promise((resolve) => setTimeout(resolve, delayMs));
     }

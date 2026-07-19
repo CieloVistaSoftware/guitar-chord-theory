@@ -7,6 +7,7 @@
 import { STANDARD_TUNING, STANDARD_TUNING_MIDI, noteNameToPitchClass, pitchClassName } from './theory.js';
 import { CHORD_SHAPES } from './chord-shapes.js';
 import { CHORD_INVERSIONS } from './chord-inversions.js';
+import { generateChordShape } from './chord-shape-generator.js';
 import { playChordMidi } from './audio.js';
 
 export const SHAPES_BY_INVERSION = {
@@ -14,6 +15,20 @@ export const SHAPES_BY_INVERSION = {
   first: CHORD_INVERSIONS.first,
   second: CHORD_INVERSIONS.second,
 };
+
+/**
+ * The shape (6-element fret array, low string to high) for chord c in the
+ * given inversion. Uses the hand-verified C-major shapes above where they
+ * exist; every other chord in every other key is derived purely from its
+ * spelling via chord-shape-generator.js, so every chord is playable.
+ */
+export function getChordShape(c, inversion) {
+  const hardcoded = SHAPES_BY_INVERSION[inversion]?.[c.chordName];
+  if (hardcoded) return hardcoded;
+  const [rootPc, thirdPc, fifthPc] = c.notes.map(noteNameToPitchClass);
+  const bassPc = inversion === 'root' ? rootPc : inversion === 'first' ? thirdPc : fifthPc;
+  return generateChordShape(rootPc, thirdPc, fifthPc, bassPc);
+}
 
 /**
  * The exact fretted/open positions of c's shape in the given inversion
@@ -25,7 +40,7 @@ export const SHAPES_BY_INVERSION = {
  * note names on open strings only ever show on the small fingering charts.
  */
 export function buildShapePositions(c, showNoteNames, inversion) {
-  const shape = SHAPES_BY_INVERSION[inversion]?.[c.chordName];
+  const shape = getChordShape(c, inversion);
   if (!shape) return [];
   const [rootPc, thirdPc, fifthPc] = c.notes.map(noteNameToPitchClass);
   const intervalLabelFor = (pc) => {
@@ -69,9 +84,9 @@ export function buildChordShapeEventDetail(c, showNoteNames) {
   return { name: c.chordName, positionsByInversion, inversionSummary: buildInversionSummary(c), showNoteNames };
 }
 
-/** Strum chordName's shape in the given inversion (default root position). */
-export function playChordAudio(chordName, inversion = 'root') {
-  const shape = SHAPES_BY_INVERSION[inversion]?.[chordName];
+/** Strum c's shape in the given inversion (default root position). */
+export function playChordAudio(c, inversion = 'root') {
+  const shape = getChordShape(c, inversion);
   if (!shape) return;
   const midiNotes = shape
     .map((fret, s) => (fret === null ? null : STANDARD_TUNING_MIDI[s] + fret))

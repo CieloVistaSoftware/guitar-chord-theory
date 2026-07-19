@@ -171,18 +171,6 @@
   color: #fff;
 }
 
-.cs-song-chip--no-shape {
-  border-color: var(--border-color, #4b5563);
-  color: var(--text-secondary, #9ca3af);
-  cursor: default;
-}
-
-.cs-song-chip--no-shape:hover,
-.cs-song-chip--no-shape:focus-visible {
-  background: transparent;
-  color: var(--text-secondary, #9ca3af);
-}
-
 .cs-song-chip.is-playing {
   background: var(--primary, #6366f1);
   color: #fff;

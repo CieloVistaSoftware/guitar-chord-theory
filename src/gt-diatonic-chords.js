@@ -3,11 +3,12 @@
  *
  * Shows the seven diatonic triads of a major key, built by actually
  * harmonizing the scale (see theory.js) rather than a hard-coded answer
- * table -- labeled with Nashville Number System notation, each with its
- * real open-position fingering (chord-shapes.js).
+ * table -- labeled with Nashville Number System notation, each with a real
+ * open-position fingering (hand-verified for C in chord-shapes.js, derived
+ * from spelling for every other key via chord-shape-generator.js).
  */
 import { harmonizeMajorScale, noteNameToPitchClass, pitchClassName, STANDARD_TUNING } from './theory.js';
-import { SHAPES_BY_INVERSION, buildChordShapeEventDetail, playChordAudio } from './chord-shape-builder.js';
+import { getChordShape, buildChordShapeEventDetail, playChordAudio } from './chord-shape-builder.js';
 import { setAudioEnabled } from './audio.js';
 
 const QUALITY_COLOR = {
@@ -147,7 +148,7 @@ export class GTDiatonicChords extends HTMLElement {
           bubbles: true,
           detail: buildChordShapeEventDetail(c, this._showNoteNames),
         }));
-        playChordAudio(chordName, this._inversion);
+        playChordAudio(c, this._inversion);
 
         // The big fretboard above is now showing this chord's root position
         // as note names or intervals (whichever _showNoteNames just picked).
@@ -178,7 +179,7 @@ export class GTDiatonicChords extends HTMLElement {
         bubbles: true,
         detail: buildChordShapeEventDetail(c, false),
       }));
-      playChordAudio(c.chordName, this._inversion);
+      playChordAudio(c, this._inversion);
 
       await new Promise((resolve) => setTimeout(resolve, this._chordDelayMs));
     }
@@ -190,10 +191,12 @@ export class GTDiatonicChords extends HTMLElement {
   }
 
   _renderFingering(c, color) {
-    const shape = SHAPES_BY_INVERSION[this._inversion]?.[c.chordName];
-    // Verified fingerings only exist for C major's own 7 diatonic chords so
-    // far. Say so plainly rather than leaving a blank gap that looks broken.
-    if (!shape) return `<p class="gt-diatonic__no-shape">No fingering chart yet for ${c.chordName} in this key.</p>`;
+    const shape = getChordShape(c, this._inversion);
+    // getChordShape() always derives a real shape from the chord's spelling
+    // when no hand-verified one exists (chord-shape-generator.js) -- null
+    // here would mean every pitch class's 0-4 fret coverage was violated,
+    // which shouldn't happen, but say so plainly rather than a blank gap.
+    if (!shape) return `<p class="gt-diatonic__no-shape">No fingering chart available for ${c.chordName}.</p>`;
     const [rootName, thirdName, fifthName] = c.notes;
     const rootPc = noteNameToPitchClass(rootName);
     const thirdPc = noteNameToPitchClass(thirdName);
