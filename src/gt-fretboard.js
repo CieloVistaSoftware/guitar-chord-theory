@@ -353,28 +353,29 @@ export class GTFretboard extends HTMLElement {
       return;
     }
 
-    // Same shared, non-climbing floor for every string as
-    // _scaleWalkPositions -- each string independently takes its own
-    // first notesPerString ascending occurrences starting from the key's
-    // root pitch, not from wherever the previous string left off. That's
-    // what keeps this a tight, aligned box shape across the neck (and
-    // matches what's actually rendered/clickable) instead of a diagonal
-    // that spreads wider the further right you go.
+    // Same per-string algorithm as _scaleWalkPositions -- each string
+    // independently finds its OWN lowest fretted occurrence of the root
+    // (not a floor shared or inherited from any other string), then takes
+    // that plus the next notesPerString-1 ascending scale tones from
+    // there. Matches what's actually rendered/clickable.
     const sequence = [];
     for (let s = 0; s < 6; s++) {
       const openPc = STANDARD_TUNING[s];
       const openMidi = STANDARD_TUNING_MIDI[s];
-      const notesOnThisString = [];
       const npsForThisString = resolveNps();
-      // f starts at 1 -- matches _renderDots/_scaleWalkPositions: an open
-      // string has no dot to flash, so counting it as one of the
-      // notesPerString slots would silently shrink this string to one
-      // fewer audible note (and add a wasted silent gap in the rhythm).
-      for (let f = 1; f <= frets && notesOnThisString.length < npsForThisString; f++) {
-        const midi = openMidi + f;
-        if (midi < rootMidi) continue;
-        if (!intervalAt(rootPc, openPc, f)) continue;
-        notesOnThisString.push(midi);
+      // f starts at 1 -- an open string has no dot to flash, so it can't
+      // be this string's root starting point even if it happens to BE
+      // the root pitch class.
+      let stringRootFret = null;
+      for (let f = 1; f <= frets; f++) {
+        if ((openPc + f) % 12 === rootPc) { stringRootFret = f; break; }
+      }
+      const notesOnThisString = [];
+      if (stringRootFret !== null) {
+        for (let f = stringRootFret; f <= frets && notesOnThisString.length < npsForThisString; f++) {
+          if (!intervalAt(rootPc, openPc, f)) continue;
+          notesOnThisString.push(openMidi + f);
+        }
       }
       sequence.push(...notesOnThisString);
     }
@@ -606,22 +607,22 @@ export class GTFretboard extends HTMLElement {
   }
 
   /**
-   * The base per-string walk (each string independently takes its first
-   * `notesPerString` ascending scale-tone occurrences at or above the
-   * key's root pitch -- the SAME starting floor for every string, not one
-   * that climbs string-to-string) plus the "Add Notes" +/- extensions
-   * above/below that base (see addNotesAbove/addNotesBelow) -- each
-   * string independently continues its own walk further in that
-   * direction. Keyed as "s-f" strings for cheap Set membership checks.
+   * The base per-string walk: each string independently finds its OWN
+   * lowest fretted (1+) occurrence of the root note (scale degree 1) --
+   * not a floor shared or inherited from any other string -- then takes
+   * that plus the next `notesPerString - 1` ascending scale-tone
+   * occurrences from there (degree 1, 2, 3, ... for notesPerString=3).
+   * Plus the "Add Notes" +/- extensions above/below that base (see
+   * addNotesAbove/addNotesBelow) -- each string independently continues
+   * its own walk further in that direction. Keyed as "s-f" strings for
+   * cheap Set membership checks.
    *
-   * Using the same starting floor for every string, rather than each
-   * string inheriting wherever the previous one left off, is what keeps
-   * this a tight, aligned "box" shape across the neck -- the standard
-   * notes-per-string practice pattern -- instead of a diagonal that
-   * spreads wider and wider the further you move across the strings.
-   * When notesPerString changes, every string's own first N stay exactly
-   * where they were and just gain/lose one at the end, string by string,
-   * 6th to 1st -- not a wholesale reshuffle.
+   * Every string genuinely starting on its own root (not wherever an
+   * absolute-pitch floor first happens to land) is what was actually
+   * asked for -- an earlier shared-floor version put whatever scale
+   * degree happened to be lowest-fretted on a higher string first (e.g.
+   * degree 4 on the high E string, skipping right past its own root),
+   * which is wrong regardless of how tidy the resulting shape looked.
    *
    *   shown    -- exactly what notesPerString picks per string
    *   extended -- shown, plus whatever Add Notes has added above/below
@@ -629,24 +630,24 @@ export class GTFretboard extends HTMLElement {
   _scaleWalkPositions(rootPc, frets, notesPerString) {
     const shown = new Set();
     const extended = new Set();
-    const rootMidi = STANDARD_TUNING_MIDI[0] + this.rootFretOnSixthString();
     const perString = new Array(6).fill(null); // { minFret, maxMidi } once a string has any shown notes
 
     for (let s = 0; s < 6; s++) {
       const openPc = STANDARD_TUNING[s];
       const openMidi = STANDARD_TUNING_MIDI[s];
+      // f starts at 1 -- scale view never marks open strings, so an open
+      // string can't be this string's "root" starting point even if it
+      // happens to BE the root pitch class.
+      let stringRootFret = null;
+      for (let f = 1; f <= frets; f++) {
+        if ((openPc + f) % 12 === rootPc) { stringRootFret = f; break; }
+      }
       const notesOnThisString = [];
-      // f starts at 1 -- scale view never marks open strings (see
-      // _renderDots's own comment), so counting f=0 as one of the
-      // notesPerString slots here would silently short this string by one
-      // actually-rendered dot (confirmed: it was consuming a slot on an
-      // invisible open-string match, leaving only notesPerString-1 dots
-      // ever drawn on that string).
-      for (let f = 1; f <= frets && notesOnThisString.length < notesPerString; f++) {
-        const midi = openMidi + f;
-        if (midi < rootMidi) continue;
-        if (!intervalAt(rootPc, openPc, f)) continue;
-        notesOnThisString.push({ f, midi });
+      if (stringRootFret !== null) {
+        for (let f = stringRootFret; f <= frets && notesOnThisString.length < notesPerString; f++) {
+          if (!intervalAt(rootPc, openPc, f)) continue;
+          notesOnThisString.push({ f, midi: openMidi + f });
+        }
       }
       for (const { f } of notesOnThisString) {
         shown.add(`${s}-${f}`);
@@ -699,15 +700,31 @@ export class GTFretboard extends HTMLElement {
     return this._extraBelowNotesPerString || 0;
   }
 
-  /** "Add Notes +" -- extends the scale view upward by one more notesPerString-sized batch per string, across all six strings. Accumulates across repeated clicks. */
+  /**
+   * "Add Notes +" -- extends the scale view upward by one more
+   * notesPerString-sized batch per string, across all six strings.
+   * Accumulates across repeated clicks, capped at fretCount (there is
+   * never a reason to ask for more extra than the whole neck's fret
+   * count -- past that the displayed "+N" number would just keep
+   * climbing meaninglessly once every occurrence up to fret 22 is
+   * already showing).
+   */
   addNotesAbove() {
-    this._extraAboveNotesPerString += this._currentNotesPerString();
+    const cap = this.fretCount;
+    this._extraAboveNotesPerString = Math.min(this._extraAboveNotesPerString + this._currentNotesPerString(), cap);
     this.render();
   }
 
-  /** "Add Notes -" -- extends the scale view downward (toward the nut) the same way. */
+  /** "Add Notes -" -- extends the scale view downward (toward the nut) the same way, same cap. */
   addNotesBelow() {
-    this._extraBelowNotesPerString += this._currentNotesPerString();
+    const cap = this.fretCount;
+    this._extraBelowNotesPerString = Math.min(this._extraBelowNotesPerString + this._currentNotesPerString(), cap);
+    this.render();
+  }
+
+  /** Resets "Add Notes" back to the base notesPerString pattern (0/0) -- the explicit reset a user can trigger directly (index.html's clickable Add Notes value label), same effect as the automatic reset a Key change already triggers. */
+  resetAddNotes() {
+    this._resetAddNotes();
     this.render();
   }
 

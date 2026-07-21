@@ -81,6 +81,19 @@
       font-weight: 600;
       white-space: nowrap;
     }
+    /* Add Notes' value is a real <button> (clicking it resets to 0), not a
+       plain <span> like the other steppers' -- strip default button chrome
+       so it reads the same, but keep a hover hint that it's clickable. */
+    button.gt-add-notes-value {
+      border: none;
+      background: none;
+      color: var(--text-primary, #f9fafb);
+      font-family: inherit;
+      cursor: pointer;
+    }
+    button.gt-add-notes-value:hover {
+      text-decoration: underline;
+    }
     /* A running lesson (src/lesson-player.js) scrolls to and glows whichever
        section it's currently narrating, so the reader's eye follows the
        lesson instead of having to hunt for what changed. */
@@ -198,7 +211,7 @@
         <span class="gt-key-card gt-add-notes-card">
           Add Notes
           <button type="button" class="gt-stepper__btn gt-add-notes-below" aria-label="Add notes below the root">−</button>
-          <span class="gt-stepper__value gt-add-notes-value">+0 / −0</span>
+          <button type="button" class="gt-stepper__value gt-add-notes-value" title="Click to reset to 0">+0 / −0</button>
           <button type="button" class="gt-stepper__btn gt-add-notes-above" aria-label="Add notes above">+</button>
         </span>
         <span class="gt-key-card gt-direction-card" hidden>
@@ -505,6 +518,10 @@
       // anything) -- keep this label in sync with that reset too.
       document.addEventListener('gt:root-picked', syncAddNotesValue);
       document.getElementById('key-select')?.addEventListener('change', syncAddNotesValue);
+      valueEl?.addEventListener('click', () => {
+        fretboard.resetAddNotes();
+        syncAddNotesValue();
+      });
     }
   </script>
 </body>
