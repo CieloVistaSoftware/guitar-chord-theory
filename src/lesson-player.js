@@ -52,8 +52,12 @@ let lastSection = null;
 // Separate from the main Mute button (audio.js's isMuted(), which silences
 // note/chord playback) -- someone may want to hear the notes without the
 // spoken narration, or vice versa, so these are two independent toggles
-// rather than one mute controlling both.
-let narrationMuted = false;
+// rather than one mute controlling both. Starts muted under Playwright (or
+// any other WebDriver-based tool) -- navigator.webdriver is the standard
+// flag those set, so automated test runs never invoke real speech
+// synthesis; a human visiting the page normally still gets narration by
+// default.
+let narrationMuted = navigator.webdriver === true;
 
 function wait(ms) {
   return new Promise((resolve) => setTimeout(resolve, ms));

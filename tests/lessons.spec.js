@@ -180,6 +180,36 @@ test('the Modes lesson strikes that mode\'s own chord once per measure, in step 
   await expect(page.locator('#beat-counter-value')).toHaveText('4 / 4');
 });
 
+// The note sequence always finishes its last measure -- by continuing
+// further up the neck with genuinely new, higher notes (gt:note-played),
+// never by wrapping around to repeat an earlier one. Those extra notes
+// have no dot on screen (past the base per-string walk) so they'd
+// otherwise be silently skipped by the visibility gate -- forcePlay in
+// _playAndWait keeps them audible anyway.
+test('the scale demo completes its last measure by continuing upward, never repeating a note', async ({ page }) => {
+  await page.evaluate(() => {
+    window.__notesPlayed = [];
+    document.querySelector('gt-fretboard').addEventListener('gt:note-played', (e) => window.__notesPlayed.push(e.detail.midi));
+  });
+
+  await page.locator('.gt-lesson-select').selectOption('modes');
+  await page.locator('.gt-lesson-modal__play').click();
+  await expect(page.locator('.gt-lesson-select')).toBeEnabled({ timeout: 20000 });
+
+  const midis = await page.evaluate(() => window.__notesPlayed);
+  // 17 base notes (6 strings x 3 notes/string, deduped, +1 for the 2nd
+  // string's bonus root) padded up to 20 -- a clean 5 measures of 4/4.
+  expect(midis.length).toBe(20);
+  expect(new Set(midis).size).toBe(midis.length); // every note is unique -- no wrap-around repeats
+
+  // The 3 padding notes (indices 17-19) are each strictly higher than
+  // everything before them -- continuing upward, not jumping around.
+  const basePeak = Math.max(...midis.slice(0, 17));
+  expect(midis[17]).toBeGreaterThan(basePeak);
+  expect(midis[18]).toBeGreaterThan(midis[17]);
+  expect(midis[19]).toBeGreaterThan(midis[18]);
+});
+
 // Play works whenever there are notes on the fretboard to hear, not only
 // once a lesson has been explicitly picked -- the default scale view is
 // on screen from the moment the page loads, before any lesson has ever
@@ -225,23 +255,34 @@ test('Stop halts an in-progress lesson and re-enables the UI', async ({ page }) 
 });
 
 // Issue #25 -- a separate mute-narration toggle, independent of the main
-// Mute button (which only covers note/chord audio).
+// Mute button (which only covers note/chord audio). Narration starts
+// muted here specifically BECAUSE this is a Playwright (WebDriver) run --
+// see lesson-player.js's navigator.webdriver check -- so real speech
+// synthesis is never invoked by the test suite; a human visiting the page
+// normally gets narration on by default instead.
 test('the narration-mute toggle is independent of the main Mute button', async ({ page }) => {
   const mute = page.locator('.gt-lesson-modal__mute');
   const muteNarration = page.locator('.gt-lesson-modal__mute-narration');
 
   await expect(mute).toHaveAttribute('aria-pressed', 'false');
-  await expect(muteNarration).toHaveAttribute('aria-pressed', 'false');
+  await expect(muteNarration).toHaveAttribute('aria-pressed', 'true');
 
   await muteNarration.click();
-  await expect(muteNarration).toHaveAttribute('aria-pressed', 'true');
+  await expect(muteNarration).toHaveAttribute('aria-pressed', 'false');
   // Toggling narration must not touch the separate audio mute.
   await expect(mute).toHaveAttribute('aria-pressed', 'false');
 
   await mute.click();
   await expect(mute).toHaveAttribute('aria-pressed', 'true');
-  // Toggling audio must not un-mute narration.
-  await expect(muteNarration).toHaveAttribute('aria-pressed', 'true');
+  // Toggling audio must not re-mute narration.
+  await expect(muteNarration).toHaveAttribute('aria-pressed', 'false');
+});
+
+// The whole point of the navigator.webdriver check above -- confirms it
+// actually fires under this exact test runner, not just in theory.
+test('narration starts muted automatically under Playwright', async ({ page }) => {
+  expect(await page.evaluate(() => navigator.webdriver)).toBe(true);
+  await expect(page.locator('.gt-lesson-modal__mute-narration')).toHaveAttribute('aria-pressed', 'true');
 });
 
 // A page reload (e.g. testing a code change) resumes whichever real

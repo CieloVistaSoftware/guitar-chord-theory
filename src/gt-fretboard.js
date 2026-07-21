@@ -388,11 +388,17 @@ export class GTFretboard extends HTMLElement {
    * (see playScaleDemo) -- louder and brighter, the way a metronome/count-
    * in accents beat 1, plus a brief CSS accent ring on the dot itself so
    * the downbeat is visible as well as audible.
+   *
+   * `forcePlay` skips the visibility gate above -- for a note that was
+   * synthesized purely to complete a measure (see playScaleDemo's
+   * upward-padding) and so has no dot on screen to correlate it to at
+   * all; still audible, just never expects pulseNote to find anything.
    */
-  async _playAndWait(midi, delayMs, accented = false) {
-    const visible = this.pulseNote(midi, accented);
+  async _playAndWait(midi, delayMs, accented = false, forcePlay = false) {
+    const visible = this.pulseNote(midi, accented) || forcePlay;
     if (visible && accented) playMidi(midi, 1.4, 0.5, 4200);
     else if (visible) playMidi(midi);
+    if (visible) this.dispatchEvent(new CustomEvent('gt:note-played', { bubbles: true, detail: { midi } }));
     const ms = typeof delayMs === 'function' ? delayMs() : delayMs;
     await new Promise((resolve) => setTimeout(resolve, ms));
   }
@@ -519,11 +525,6 @@ export class GTFretboard extends HTMLElement {
       return true;
     });
 
-    const resolveDirection = () => (typeof direction === 'function' ? direction() : direction);
-    let toPlay = resolveDirection() === 'down' ? [...dedupedSequence].reverse()
-      : resolveDirection() === 'both' ? [...dedupedSequence, ...[...dedupedSequence].reverse().slice(1)]
-      : dedupedSequence;
-
     const resolveBeats = () => {
       const n = typeof beatsPerMeasure === 'function' ? beatsPerMeasure() : beatsPerMeasure;
       return n > 0 ? n : 4;
@@ -533,25 +534,48 @@ export class GTFretboard extends HTMLElement {
     // Always finish the measure it's in -- a lone note or two left
     // dangling at the end (not a full beatsPerMeasure group) would mean
     // the last chord strike (onBeatOne) never gets its full measure's
-    // worth of melody notes to ring under. Pad by cycling back through
-    // the same sequence from the top rather than just stopping short.
+    // worth of melody notes to ring under. Never wrap around to repeat
+    // earlier notes -- keep playing further UP the neck instead (more
+    // ascending scale-tone frets on the high E string, past wherever the
+    // base per-string walk stopped), same as the rest of an 'up' walk
+    // would naturally continue if it kept going.
+    // Tracked by value (not index) since direction reversal below can move
+    // these anywhere in the final toPlay order -- a padding note has no
+    // dot on screen at all (it's past the base per-string walk), so it
+    // needs _playAndWait's visibility gate bypassed or it would be
+    // silently skipped, same as any note with nothing to correlate it to.
+    const paddingMidis = new Set();
     const beatsForPadding = resolveBeats();
-    if (toPlay.length % beatsForPadding !== 0) {
-      const original = toPlay;
-      toPlay = original.slice();
-      let cursor = 0;
-      while (toPlay.length % beatsForPadding !== 0) {
-        toPlay.push(original[cursor % original.length]);
-        cursor++;
+    const notesNeeded = dedupedSequence.length ? (beatsForPadding - (dedupedSequence.length % beatsForPadding)) % beatsForPadding : 0;
+    if (notesNeeded > 0) {
+      const highString = 5; // high E -- where an 'up' walk naturally ends
+      const openPc = STANDARD_TUNING[highString];
+      const openMidi = STANDARD_TUNING_MIDI[highString];
+      let highestMidi = Math.max(...dedupedSequence);
+      let added = 0;
+      for (let f = 1; f <= frets && added < notesNeeded; f++) {
+        const midi = openMidi + f;
+        if (midi <= highestMidi) continue;
+        if (!intervalAt(rootPc, openPc, f)) continue;
+        dedupedSequence.push(midi);
+        paddingMidis.add(midi);
+        highestMidi = midi;
+        added++;
       }
     }
+
+    const resolveDirection = () => (typeof direction === 'function' ? direction() : direction);
+    const toPlay = resolveDirection() === 'down' ? [...dedupedSequence].reverse()
+      : resolveDirection() === 'both' ? [...dedupedSequence, ...[...dedupedSequence].reverse().slice(1)]
+      : dedupedSequence;
+
     for (let i = 0; i < toPlay.length; i++) {
       if (this._playbackGen !== myGen) return; // superseded -- abandon the rest of this run
       const beats = resolveBeats();
       const beatNumber = (i % beats) + 1; // 1-indexed, cycling 1..beats
       this.dispatchEvent(new CustomEvent('gt:beat-changed', { bubbles: true, detail: { beat: beatNumber, beatsPerMeasure: beats } }));
       if (beatNumber === 1) onBeatOne?.((beats * resolveDelay()) / 1000);
-      await this._playAndWait(toPlay[i], delayMs, beatNumber === 1);
+      await this._playAndWait(toPlay[i], delayMs, beatNumber === 1, paddingMidis.has(toPlay[i]));
     }
   }
 
