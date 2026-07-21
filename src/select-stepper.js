@@ -15,6 +15,8 @@
  * override. Buttons don't have that problem at all, hence the stepper
  * instead of trying to keep the native dropdown.
  */
+import { registerBehavior } from './gt-behaviors.js';
+
 export function wireStepper(selectEl) {
   if (!selectEl || selectEl.dataset.stepperWired) return;
   selectEl.dataset.stepperWired = 'true';
@@ -73,3 +75,6 @@ export function wireStepper(selectEl) {
   selectEl.addEventListener('change', sync);
   sync();
 }
+
+// data-gt-behavior="stepper" -- no extra context needed, it only acts on the select itself.
+registerBehavior('stepper', (selectEl) => wireStepper(selectEl));

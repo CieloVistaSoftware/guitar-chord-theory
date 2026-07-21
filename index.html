@@ -192,8 +192,8 @@
       <button type="button" class="gt-lesson-dismiss">✕ Dismiss</button>
     </div>
     <wb-card class="gt-fretboard-card" data-clickable="false" data-hoverable="false"
-             x-behavior="resizable" data-min-width="400" data-min-height="150" data-aspect-ratio>
-      <main>
+             x-behavior="resizable" data-gt-behavior="auto-recenter" data-min-width="400" data-min-height="150" data-aspect-ratio>
+      <main data-gt-behavior="pinch-zoom fretboard-pan">
         <div class="gt-lesson-modal" id="fretboardcontroller"
              x-behavior="draggable resizable" data-handle=".gt-lesson-modal__handle" data-bounds="parent"
              data-min-width="220" data-min-height="140">
@@ -202,14 +202,14 @@
             <button type="button" class="gt-lesson-modal__collapse-btn" aria-pressed="false">▲ Collapse</button>
           </div>
           <div class="gt-lesson-modal__header-controls">
-            <button type="button" class="gt-label-mode-btn" aria-pressed="false">🔢 Numbers</button>
+            <button type="button" class="gt-label-mode-btn" data-gt-behavior="label-mode-toggle" aria-pressed="false">🔢 Numbers</button>
             <span class="gt-key-card">
               Key
               <select id="key-select"></select>
             </span>
             <span class="gt-key-card">
               Notes/string
-              <select class="gt-lesson-modal__nps-select" autocomplete="off">
+              <select class="gt-lesson-modal__nps-select" data-gt-behavior="stepper" autocomplete="off">
                 <option value="2">2</option>
                 <option value="3" selected>3</option>
                 <option value="4">4</option>
@@ -224,14 +224,14 @@
             </span>
             <span class="gt-key-card gt-direction-card" hidden>
               Direction
-              <select class="gt-direction-select" autocomplete="off">
+              <select class="gt-direction-select" data-gt-behavior="stepper" autocomplete="off">
                 <option value="up" selected>Up</option>
                 <option value="down">Down</option>
                 <option value="both">Both</option>
               </select>
             </span>
             <button type="button" class="gt-lesson-card__play-btn" disabled>▶ Play</button>
-            <button type="button" class="gt-info-btn" aria-label="What am I looking at?">
+            <button type="button" class="gt-info-btn" data-gt-behavior="info-tooltip" aria-label="What am I looking at?">
               <span aria-hidden="true">ⓘ</span>
               <span class="gt-info-tooltip">
                 Every colored dot is a note in the current key's major scale. The number is its
@@ -250,8 +250,8 @@
               Zoomed: <span id="focus-range-text"></span>
               <button type="button" id="show-full-neck-btn" class="gt-mode-btn gt-mode-btn--back">⤢ Show full neck</button>
             </span>
-            <button type="button" class="gt-fret-marker-btn" aria-pressed="false">◉ Fret markers</button>
-            <button type="button" class="gt-fullscreen-btn" aria-pressed="false">⛶ Fullscreen</button>
+            <button type="button" class="gt-fret-marker-btn" data-gt-behavior="fret-marker-toggle" aria-pressed="false">◉ Fret markers</button>
+            <button type="button" class="gt-fullscreen-btn" data-gt-behavior="fullscreen-toggle" aria-pressed="false">⛶ Fullscreen</button>
           </div>
           <div class="gt-lesson-modal__content"></div>
           <label class="gt-lesson-modal__tempo gt-lesson-modal__control" data-control="tempo">
@@ -266,7 +266,7 @@
           </label>
           <span class="gt-lesson-modal__tempo gt-lesson-modal__control" data-control="mode">
             Mode
-            <select class="gt-mode-select" autocomplete="off">
+            <select class="gt-mode-select" data-gt-behavior="stepper" autocomplete="off">
               <option value="0" selected>Ionian (the major scale)</option>
               <option value="1">Dorian</option>
               <option value="2">Phrygian</option>
@@ -278,7 +278,7 @@
           </span>
           <span class="gt-lesson-modal__tempo gt-lesson-modal__control" data-control="timeSignature">
             Time signature
-            <select class="gt-time-signature-select" autocomplete="off">
+            <select class="gt-time-signature-select" data-gt-behavior="stepper" autocomplete="off">
               <option value="2">2/4</option>
               <option value="3">3/4</option>
               <option value="4" selected>4/4</option>
@@ -312,7 +312,7 @@
     <div class="gt-lesson-copy">
       <h2>
         All seven chords in the key of <span id="key-chords-heading">C</span>
-        <button type="button" class="gt-info-btn" aria-label="How these chords are built">
+        <button type="button" class="gt-info-btn" data-gt-behavior="info-tooltip" aria-label="How these chords are built">
           <span aria-hidden="true">ⓘ</span>
           <span class="gt-info-tooltip">
             Harmonize the major scale — stack a diatonic 3rd and 5th on top of every
@@ -375,25 +375,34 @@
     import { NOTE_NAMES, pitchClassName, harmonizeMajorScale, noteNameToPitchClass } from './src/theory.js?v=7';
     import { buildChordShapeEventDetail } from './src/chord-shape-builder.js?v=7';
     import { themecontrol } from 'wb-starter/wb-viewmodels/themecontrol.js';
-    import { wireFullscreenToggle } from './src/fullscreen-toggle.js?v=7';
-    import { wireInfoTooltip } from './src/info-tooltip.js?v=7';
-    import { wirePinchZoom } from './src/pinch-zoom.js?v=7';
-    import { wireFretboardPan } from './src/fretboard-pan.js?v=7';
-    import { wireAutoRecenterOnResize } from './src/auto-recenter.js?v=7';
-    import { wireLabelModeToggle } from './src/label-mode-toggle.js?v=7';
-    import { wireFretMarkerToggle } from './src/fret-marker-toggle.js?v=7';
+    // Side-effect only -- each of these self-registers a data-gt-behavior
+    // (see src/gt-behaviors.js) instead of being called directly here.
+    import './src/fullscreen-toggle.js?v=7';
+    import './src/info-tooltip.js?v=7';
+    import './src/pinch-zoom.js?v=7';
+    import './src/fretboard-pan.js?v=7';
+    import './src/auto-recenter.js?v=7';
+    import './src/label-mode-toggle.js?v=7';
+    import './src/fret-marker-toggle.js?v=7';
+    import './src/select-stepper.js?v=7';
+    // No ?v= query here -- every gt-*.js behavior module imports this same
+    // file as a plain relative path (no query, see e.g. gt-fretboard.js's
+    // own './theory.js' import), and ES modules key their identity on the
+    // exact resolved URL including the query string. A cache-busted import
+    // here would silently create a SECOND module instance with its own
+    // empty registry, so every registerBehavior() call would land in a
+    // different object than the one scanBehaviors() reads from below.
+    import { scanBehaviors } from './src/gt-behaviors.js';
     import { createLessonPlayer } from './src/lesson-player.js?v=7';
     import { buildLessons } from './src/lessons-data.js?v=7';
-    import { wireStepper } from './src/select-stepper.js?v=7';
 
     window.WB = WB;
     await WB.scan(document.body);
 
-    wireFullscreenToggle(document.querySelector('.gt-fullscreen-btn'), document.querySelector('.gt-fretboard-card'));
-    document.querySelectorAll('.gt-info-btn').forEach(wireInfoTooltip);
-    wirePinchZoom(document.querySelector('.gt-fretboard-card main'), document.querySelector('gt-fretboard'));
-    wireFretboardPan(document.querySelector('.gt-fretboard-card main'), document.querySelector('gt-fretboard'));
-    wireAutoRecenterOnResize(document.querySelector('.gt-fretboard-card'));
+    scanBehaviors(document, {
+      fretboard: document.querySelector('gt-fretboard'),
+      fretboardCard: document.querySelector('.gt-fretboard-card'),
+    });
 
     // The "Zoomed to frets X-Y" indicator lives in the header now, not as a
     // banner inside the card body -- gt-fretboard.js only dispatches the
@@ -417,8 +426,6 @@
 
     const fretboard = document.querySelector('gt-fretboard');
     const diatonicChords = document.querySelector('gt-diatonic-chords');
-    wireLabelModeToggle(document.querySelector('.gt-label-mode-btn'), fretboard);
-    wireFretMarkerToggle(document.querySelector('.gt-fret-marker-btn'), fretboard);
     document.addEventListener('gt:chord-shape-selected', (e) => {
       fretboard.showChordShape(e.detail.name, e.detail.positionsByInversion, e.detail.inversionSummary, e.detail.showNoteNames, e.detail.degree);
     });
@@ -500,12 +507,11 @@
     // Native <select> dropdowns auto-exit browser fullscreen the instant
     // they open (Chromium security behavior, not fixable via click
     // handlers) -- every OTHER select living inside the fretboard card
-    // (the fullscreen target above) is replaced with a prev/next stepper.
+    // (the fullscreen target above) is replaced with a prev/next stepper
+    // (data-gt-behavior="stepper" on each <select>, see markup above).
     // Key stays a plain native <select> -- reverted back on request, so
     // it will re-trigger the fullscreen-exit behavior if used while
     // fullscreen, same as before #23's fix.
-    ['.gt-lesson-modal__nps-select', '.gt-direction-select', '.gt-mode-select', '.gt-time-signature-select']
-      .forEach((sel) => wireStepper(document.querySelector(sel)));
 
     // Add Notes (+/-) isn't a cycling select like the others -- it's an
     // unbounded accumulator with a single signed level -- + increments

@@ -11,6 +11,8 @@
  * click and left alone; anything past that suppresses the click that would
  * otherwise fire on release.
  */
+import { registerBehavior } from './gt-behaviors.js';
+
 const DRAG_THRESHOLD_PX = 6;
 
 export function wireFretboardPan(container, fretboardEl) {
@@ -57,3 +59,6 @@ export function wireFretboardPan(container, fretboardEl) {
   container.addEventListener('pointercancel', onPointerUp);
   container.addEventListener('click', onClickCapture, true);
 }
+
+// data-gt-behavior="fretboard-pan" on the container; context.fretboard is the element panned.
+registerBehavior('fretboard-pan', (container, { fretboard }) => wireFretboardPan(container, fretboard));

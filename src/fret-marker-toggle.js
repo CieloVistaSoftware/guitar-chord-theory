@@ -2,6 +2,8 @@
  * Wires the fret-markers on/off button in the fretboard card header to
  * <gt-fretboard>'s inlay-dot toggle (setFretMarkers()).
  */
+import { registerBehavior } from './gt-behaviors.js';
+
 export function wireFretMarkerToggle(btn, fretboard) {
   const sync = () => {
     const on = fretboard.getFretMarkers();
@@ -16,3 +18,6 @@ export function wireFretMarkerToggle(btn, fretboard) {
 
   sync();
 }
+
+// data-gt-behavior="fret-marker-toggle" on the button; context.fretboard is what it switches.
+registerBehavior('fret-marker-toggle', (btn, { fretboard }) => wireFretMarkerToggle(btn, fretboard));

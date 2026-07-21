@@ -6,6 +6,8 @@
  * exposing element.wbResizable.getSize()/setSize() -- if there isn't one,
  * the box-growing step is simply skipped and only the image scales.
  */
+import { registerBehavior } from './gt-behaviors.js';
+
 const MIN_SCALE = 0.5;
 const MAX_SCALE = 3;
 
@@ -78,3 +80,6 @@ export function wirePinchZoom(container, target) {
     if (e.touches.length < 2) pinchStartDistance = null;
   });
 }
+
+// data-gt-behavior="pinch-zoom" on the container; context.fretboard is the target that scales.
+registerBehavior('pinch-zoom', (container, { fretboard }) => wirePinchZoom(container, fretboard));

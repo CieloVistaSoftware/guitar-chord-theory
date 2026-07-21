@@ -3,6 +3,8 @@
  * Shared by every page that puts a <gt-fretboard> inside a <wb-card> --
  * fullscreen just needs the element in the document, not any particular tag.
  */
+import { registerBehavior } from './gt-behaviors.js';
+
 export function wireFullscreenToggle(btn, targetEl) {
   const isFullscreen = () => document.fullscreenElement === targetEl;
 
@@ -40,3 +42,7 @@ export function wireFullscreenToggle(btn, targetEl) {
   targetEl.addEventListener('fullscreenchange', updateLabel);
   updateLabel();
 }
+
+// data-gt-behavior="fullscreen-toggle" on the button; context.fretboardCard
+// is the target that actually goes fullscreen (see gt-behaviors.js).
+registerBehavior('fullscreen-toggle', (btn, { fretboardCard }) => wireFullscreenToggle(btn, fretboardCard));

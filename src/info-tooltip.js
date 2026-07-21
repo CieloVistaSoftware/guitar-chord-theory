@@ -9,6 +9,8 @@
  * height with internal scroll as a last resort), guarantees the content is
  * never cut off regardless of where the button sits or how long the text is.
  */
+import { registerBehavior } from './gt-behaviors.js';
+
 const MARGIN = 8; // minimum gap kept from any viewport edge
 
 let openBtn = null;
@@ -84,3 +86,6 @@ export function wireInfoTooltip(btn) {
   window.addEventListener('resize', () => { if (openBtn === btn) positionPortal(btn); });
   window.addEventListener('scroll', () => { if (openBtn === btn) positionPortal(btn); }, true);
 }
+
+// data-gt-behavior="info-tooltip" -- every .gt-info-btn wires the same way, no extra context needed.
+registerBehavior('info-tooltip', (btn) => wireInfoTooltip(btn));

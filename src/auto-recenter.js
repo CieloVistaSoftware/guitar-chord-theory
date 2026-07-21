@@ -7,8 +7,13 @@
  * scroll animation restarting on every resize tick would fight itself and
  * lag behind the actual resize.
  */
+import { registerBehavior } from './gt-behaviors.js';
+
 export function wireAutoRecenterOnResize(element) {
   const recenter = () => element.scrollIntoView({ behavior: 'auto', block: 'center', inline: 'center' });
   element.addEventListener('wb:resize:move', recenter);
   element.addEventListener('wb:resize:end', recenter);
 }
+
+// data-gt-behavior="auto-recenter" -- no extra context needed, it only acts on the element itself.
+registerBehavior('auto-recenter', (element) => wireAutoRecenterOnResize(element));
