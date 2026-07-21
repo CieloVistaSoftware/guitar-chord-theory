@@ -65,6 +65,7 @@ export function renderDiatonicTable(container) {
               ${chords.map((c) => `
                 <button type="button" class="cs-diatonic-chip" style="--quality-color:${QUALITY_COLOR[c.quality]}"
                         data-pcs="${c.notes.map((n) => NOTE_NAMES.indexOf(n)).join(',')}"
+                        data-chord-key="${c.rootName}-${c.quality}"
                         aria-label="Play ${c.chordName} in the key of ${keyName}">
                   <span class="cs-diatonic-chip__nashville">${c.nashville}</span>
                   <span class="cs-diatonic-chip__name">${c.chordName}</span>
@@ -83,6 +84,27 @@ export function renderDiatonicTable(container) {
       setAudioEnabled(true); // this click is the user gesture the browser needs to unlock audio -- no separate toggle button anymore
       const pcs = chip.dataset.pcs.split(',').map(Number);
       playTriadPreview(pcs);
+      highlightSameChord(container, chip.dataset.chordKey);
     });
+  });
+}
+
+// Issue #14 -- the same actual chord (e.g. "C major") shows up under a
+// different Roman-numeral/Nashville degree in every key that harmonizes to
+// it (I in C, IV in G, V in F, ...). Clicking a chip highlights every OTHER
+// chip sharing its root+quality data-chord-key, so the reader can trace
+// where that chord reappears across the whole table. Re-clicking the same
+// chord toggles the highlight off instead of leaving it stuck on.
+function highlightSameChord(container, chordKey) {
+  const previouslyHighlighted = container.querySelectorAll('.cs-diatonic-chip.is-cross-highlighted');
+  const wasShowingThisChord = previouslyHighlighted.length > 0
+    && previouslyHighlighted[0].dataset.chordKey === chordKey;
+
+  previouslyHighlighted.forEach((chip) => chip.classList.remove('is-cross-highlighted'));
+
+  if (wasShowingThisChord) return;
+
+  container.querySelectorAll(`.cs-diatonic-chip[data-chord-key="${chordKey}"]`).forEach((chip) => {
+    chip.classList.add('is-cross-highlighted');
   });
 }
