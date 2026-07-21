@@ -108,3 +108,29 @@ test('the first chord of the next Chords-lesson pass already reflects the advanc
 
   await expect.poll(() => page.evaluate(() => window.__firstPluckInversion), { timeout: 8000 }).toBe('first');
 });
+
+// Issue #24 -- changing Mode while the Modes lesson is playing left the
+// fretboard showing whatever the PREVIOUS mode's playthrough left on
+// screen; picking a new mode has to actually re-run the demo, the same as
+// clicking Replay, not just silently update the dropdown's own label.
+test('changing Mode while the Modes lesson is active re-triggers the demo', async ({ page }) => {
+  await page.locator('.gt-lesson-select').selectOption('modes');
+  await page.locator('.gt-lesson-card__play-btn').click();
+
+  // Wait for the initial playthrough to finish -- the lesson select
+  // re-enables once playing stops (same signal used by the inversion test
+  // above).
+  await expect(page.locator('.gt-lesson-select')).toBeEnabled({ timeout: 15000 });
+
+  // Every scale-tone occurrence should already be on screen (showEveryOccurrence()) --
+  // confirms the "always show while Modes is active" half of #24.
+  await expect.poll(() => page.locator('.gt-dot').count()).toBeGreaterThan(20);
+
+  // Changing Mode (the underlying <select> the stepper drives) must
+  // re-arm playback exactly like clicking Replay does.
+  await page.locator('.gt-mode-select').selectOption('3'); // Lydian
+  await expect(page.locator('.gt-lesson-select')).toBeDisabled();
+
+  await expect(page.locator('.gt-lesson-select')).toBeEnabled({ timeout: 15000 });
+  await expect.poll(() => page.locator('.gt-dot').count()).toBeGreaterThan(20);
+});

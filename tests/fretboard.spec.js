@@ -79,3 +79,22 @@ test('changing Key while a chord shape is shown keeps showing a chord shape', as
 
   await expect(page.locator('.gt-fretboard__chord-banner')).toBeVisible();
 });
+
+// Fret-position inlay markers (3,5,7,9,12...) are on by default and can be
+// toggled off/back on from the header.
+test('the fret-markers toggle shows and hides the inlay-dot markers', async ({ page }) => {
+  const markerCount = () => page.locator('.gt-fret-marker').count();
+
+  await expect.poll(markerCount).toBeGreaterThan(0);
+
+  const toggle = page.locator('.gt-fret-marker-btn');
+  await expect(toggle).toHaveAttribute('aria-pressed', 'true');
+  await toggle.click();
+
+  await expect(toggle).toHaveAttribute('aria-pressed', 'false');
+  await expect.poll(markerCount).toBe(0);
+
+  await toggle.click();
+  await expect(toggle).toHaveAttribute('aria-pressed', 'true');
+  await expect.poll(markerCount).toBeGreaterThan(0);
+});

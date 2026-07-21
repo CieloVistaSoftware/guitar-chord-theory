@@ -66,6 +66,9 @@ export class GTFretboard extends HTMLElement {
     // Temporary override used by showEveryOccurrence() (e.g. the Modes
     // lesson) -- see that method's own comment.
     this._forceShowEverything = false;
+    // Traditional fret-position inlay dots (frets 3,5,7,9,12,15,17,19,21...)
+    // -- purely decorative/orientation, on by default like a real neck.
+    this._showFretMarkers = true;
   }
 
   connectedCallback() {
@@ -182,6 +185,17 @@ export class GTFretboard extends HTMLElement {
   /** Switches the scale-view dot labels between scale-degree numbers and real note names. */
   setLabelMode(mode) {
     this._labelMode = mode;
+    this.render();
+  }
+
+  /** Whether the traditional inlay-dot fret markers are currently shown. */
+  getFretMarkers() {
+    return this._showFretMarkers;
+  }
+
+  /** Turns the fret-position inlay markers on/off (index.html's toggle button). */
+  setFretMarkers(show) {
+    this._showFretMarkers = show;
     this.render();
   }
 
@@ -470,6 +484,7 @@ export class GTFretboard extends HTMLElement {
            aria-label="${this._chord ? `Guitar fretboard showing ${this._chord.name}'s ${this._inversion === 'root' ? 'root position' : this._inversion === 'first' ? '1st inversion' : '2nd inversion'} shape` : `Guitar fretboard showing ${this.rootNote} major scale intervals`}">
         ${this._renderFrets(frets, fullWidth, height)}
         ${this._renderStrings(frets, fullWidth)}
+        ${this._showFretMarkers ? this._renderFretMarkers(frets) : ''}
         ${this._chord ? this._renderShapeDots() : this._renderDots(rootPc, frets)}
         ${this._renderStringLabels()}
       </svg>
@@ -545,6 +560,48 @@ export class GTFretboard extends HTMLElement {
       const y = this._rowY(s);
       out += `<line x1="${FRETBOARD_PAD_LEFT}" y1="${y}" x2="${FRETBOARD_PAD_LEFT + frets * FRET_WIDTH}" y2="${y}"
                      stroke="#9ca3af" stroke-width="${1 + s * 0.4}" />`;
+    }
+    return out;
+  }
+
+  // Traditional inlay position markers -- single dots at 3,5,7,9,15,17,19,21
+  // (one per fret, centered between the D and G strings, the same spot a
+  // real neck's dots sit relative to all six strings), double dots at 12
+  // and 24 (one string-gap above and below that same center line). Purely
+  // decorative -- no data-midi/data-tone, so they're never clickable and
+  // never targeted by _renderDots' own click wiring. Rendered into the SVG
+  // BEFORE the actual note dots (see render()), so in paint order a real
+  // note dot always ends up on top of a marker that happens to share its
+  // fret -- "any note wins over a fret marker" is just SVG draw order, not
+  // a runtime check.
+  _renderFretMarkers(frets) {
+    const centerY = (this._rowY(2) + this._rowY(3)) / 2;
+    const upperY = (this._rowY(3) + this._rowY(4)) / 2; // one string-gap toward the high E side
+    const lowerY = (this._rowY(1) + this._rowY(2)) / 2; // one string-gap toward the low E side
+    const r = DOT_RADIUS * 0.55;
+
+    const pearl = (x, y) => `
+      <circle cx="${x}" cy="${y}" r="${r}" fill="url(#gt-pearl-fill)" stroke="#e8e8f0" stroke-width="0.75" opacity="0.85" />
+      <circle cx="${x - r * 0.3}" cy="${y - r * 0.35}" r="${r * 0.32}" fill="#ffffff" opacity="0.55" />`;
+
+    let out = `
+      <defs>
+        <radialGradient id="gt-pearl-fill" cx="35%" cy="30%" r="75%">
+          <stop offset="0%" stop-color="#fdfdfb" />
+          <stop offset="45%" stop-color="#e6e2f0" />
+          <stop offset="75%" stop-color="#c9c4de" />
+          <stop offset="100%" stop-color="#a89fc4" />
+        </radialGradient>
+      </defs>`;
+
+    for (let f = 1; f <= frets; f++) {
+      const x = FRETBOARD_PAD_LEFT + f * FRET_WIDTH - FRET_WIDTH / 2;
+      const mod = f % 12;
+      if (mod === 0) {
+        out += `<g class="gt-fret-marker" style="pointer-events:none">${pearl(x, upperY)}${pearl(x, lowerY)}</g>`;
+      } else if ([3, 5, 7, 9].includes(mod)) {
+        out += `<g class="gt-fret-marker" style="pointer-events:none">${pearl(x, centerY)}</g>`;
+      }
     }
     return out;
   }

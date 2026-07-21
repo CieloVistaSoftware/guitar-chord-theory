@@ -78,7 +78,8 @@ gt-fretboard {
 }
 
 .gt-fullscreen-btn,
-.gt-label-mode-btn {
+.gt-label-mode-btn,
+.gt-fret-marker-btn {
   display: inline-flex;
   align-items: center;
   justify-content: center;
@@ -97,7 +98,9 @@ gt-fretboard {
 .gt-fullscreen-btn:hover,
 .gt-fullscreen-btn[aria-pressed="true"],
 .gt-label-mode-btn:hover,
-.gt-label-mode-btn[aria-pressed="true"] {
+.gt-label-mode-btn[aria-pressed="true"],
+.gt-fret-marker-btn:hover,
+.gt-fret-marker-btn[aria-pressed="true"] {
   background: var(--primary, #6366f1);
   border-color: var(--primary, #6366f1);
   color: #fff;
