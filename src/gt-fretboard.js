@@ -422,8 +422,14 @@ export class GTFretboard extends HTMLElement {
    * pulses), etc. Purely a metronome-style accent overlaid on the same
    * note sequence -- it never changes which notes play, only how beat 1
    * of each group sounds/looks.
+   *
+   * `onEachNote`, if given, fires right alongside every note in the main
+   * (notesPerString) walk -- e.g. the Modes lesson strums that mode's own
+   * tonic chord underneath every melody note, so the ear hears each scale
+   * tone against its mode's harmonic "home" instead of in isolation. Never
+   * fires for the older one-octave flashcard branch below.
    */
-  async playScaleDemo(delayMs = 650, notesPerString = 3, direction = 'up', beatsPerMeasure = 4) {
+  async playScaleDemo(delayMs = 650, notesPerString = 3, direction = 'up', beatsPerMeasure = 4, onEachNote) {
     // A Stop is still in effect -- refuse to start at all until
     // armPlayback() explicitly re-arms it (see stopPlayback's own comment).
     if (this._playbackStopped) return;
@@ -510,6 +516,7 @@ export class GTFretboard extends HTMLElement {
     };
     for (let i = 0; i < toPlay.length; i++) {
       if (this._playbackGen !== myGen) return; // superseded -- abandon the rest of this run
+      onEachNote?.();
       await this._playAndWait(toPlay[i], delayMs, i % resolveBeats() === 0);
     }
   }

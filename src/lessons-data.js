@@ -10,7 +10,7 @@
  * depend on the currently selected key.
  */
 import { buildChordShapeEventDetail, playChordAudio } from './chord-shape-builder.js';
-import { noteNameToPitchClass, modeInfo } from './theory.js';
+import { noteNameToPitchClass, modeInfo, harmonizeMajorScale } from './theory.js';
 
 function wait(ms) {
   return new Promise((resolve) => setTimeout(resolve, ms));
@@ -116,7 +116,19 @@ export function buildLessons({ diatonicChords }) {
         // (and Add Notes extends) only that mode's own box, not the whole
         // neck. See gt-fretboard.js#setWalkAnchor.
         fretboard.setWalkAnchor(modeRootPc);
-        await fretboard.playScaleDemo(getNoteDelayMs, getNotesPerString, getDirection, getTimeSignature);
+
+        // The mode's own tonic triad -- degree modeIndex+1's diatonic chord
+        // in the CURRENT key (harmonizeMajorScale's array is already
+        // indexed exactly this way: Ionian=I major, Dorian=ii minor,
+        // Locrian=vii diminished, etc). Strummed alongside every melody
+        // note so the ear hears each scale tone against that mode's own
+        // harmonic "home," not just in isolation.
+        const modeChord = harmonizeMajorScale(parentRootPc)[modeIndex];
+        await fretboard.playScaleDemo(getNoteDelayMs, getNotesPerString, getDirection, getTimeSignature, () => {
+          playChordAudio(modeChord, 'root', (midi) => {
+            document.dispatchEvent(new CustomEvent('gt:mode-chord-strummed', { bubbles: true, detail: { midi, chordName: modeChord.chordName } }));
+          });
+        });
       },
     },
   ];

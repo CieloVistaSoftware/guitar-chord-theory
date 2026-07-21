@@ -140,6 +140,26 @@ test('changing Mode while the Modes lesson is active re-triggers the demo', asyn
   await expect.poll(() => page.locator('.gt-dot').count()).toBe(18);
 });
 
+// The Modes lesson strums that mode's own diatonic triad (harmonizeMajorScale
+// in the current key, at the mode's own scale degree -- Ionian=I major,
+// Dorian=ii minor, Locrian=vii diminished, etc) alongside every melody
+// note, so the ear hears each scale tone against that mode's own harmonic
+// "home" instead of in isolation.
+test('the Modes lesson strums that mode\'s own chord alongside each melody note', async ({ page }) => {
+  await page.evaluate(() => {
+    window.__strums = [];
+    document.addEventListener('gt:mode-chord-strummed', (e) => window.__strums.push(e.detail.chordName));
+  });
+
+  await page.locator('.gt-lesson-select').selectOption('modes');
+  await page.locator('.gt-lesson-modal__play').click();
+
+  // Ionian (the default mode) on key C is the I chord -- C major.
+  await expect.poll(() => page.evaluate(() => window.__strums.length)).toBeGreaterThan(0);
+  const chordNames = await page.evaluate(() => window.__strums);
+  expect(chordNames.every((name) => name === 'C')).toBe(true);
+});
+
 // Play works whenever there are notes on the fretboard to hear, not only
 // once a lesson has been explicitly picked -- the default scale view is
 // on screen from the moment the page loads, before any lesson has ever
