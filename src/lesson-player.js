@@ -1,18 +1,20 @@
 /**
- * Wires the Lessons card: picking an option from the dropdown plays that
- * lesson immediately (no separate Play button). Playing a lesson enables
- * audio, hides the page h1/subtitle (the Lessons card is the only header
- * that matters once you're mid-lesson), zooms the fretboard to that
- * lesson's fret range (or back to the whole neck if it doesn't specify
- * one), then runs the lesson's own demo. A lesson narrates either via
- * showModal() (a floating panel cloned over the fretboard -- see
+ * Wires the Lessons card: picking an option from the dropdown only arms
+ * the modal's Play button (see createLessonPlayer's selectEl listener) --
+ * the user has to explicitly click Play to start it. Playing a lesson
+ * enables audio, hides the page h1/subtitle (the Lessons card is the only
+ * header that matters once you're mid-lesson), zooms the fretboard to
+ * that lesson's fret range (or back to the whole neck if it doesn't
+ * specify one), then runs the lesson's own demo. A lesson narrates either
+ * via showModal() (a floating panel cloned over the fretboard -- see
  * .gt-lesson-modal) or highlightSection() (reveals real inline content
  * like the chords grid, in place -- see .gt-lesson-copy /
- * .gt-lesson-highlight in index.html). The modal also carries Replay,
- * Loop, and a note-speed slider for ear training (getNoteDelayMs() in the
- * run() context) -- all three are modal-level state, not per-lesson, so
- * "slowed down" stays slowed down across Replay/Loop and switching
- * lessons. The h1/subtitle come back once the lesson finishes.
+ * .gt-lesson-highlight in index.html). The modal also carries Play (which
+ * doubles as Replay once a lesson has run), Stop, Loop, Mute, Mute
+ * Narration, and a note-speed slider for ear training (getNoteDelayMs() in
+ * the run() context) -- all modal-level state, not per-lesson, so
+ * "slowed down" stays slowed down across Play/Loop and switching lessons.
+ * The h1/subtitle come back once the lesson finishes.
  */
 import { setAudioEnabled, toggleMuted, isMuted } from './audio.js';
 
@@ -29,7 +31,7 @@ const HIGHLIGHT_CLASS = 'gt-lesson-highlight';
 function speakNarration(contentEl) {
   if (!('speechSynthesis' in window)) return;
   window.speechSynthesis.cancel();
-  if (isMuted()) return;
+  if (isMuted() || narrationMuted) return;
 
   const clone = contentEl.cloneNode(true);
   // The chords-lesson heading nests an (i) info button whose tooltip text
@@ -46,6 +48,12 @@ function speakNarration(contentEl) {
 // closing the narration also closes any inline content (like the chords
 // grid) it opened alongside.
 let lastSection = null;
+
+// Separate from the main Mute button (audio.js's isMuted(), which silences
+// note/chord playback) -- someone may want to hear the notes without the
+// spoken narration, or vice versa, so these are two independent toggles
+// rather than one mute controlling both.
+let narrationMuted = false;
 
 function wait(ms) {
   return new Promise((resolve) => setTimeout(resolve, ms));
@@ -115,7 +123,7 @@ async function showModal(section, { scrollToFretboard = true } = {}) {
   speakNarration(content);
 }
 
-function wireModal({ onReplay, onToggleLoop, onDismiss } = {}) {
+function wireModal({ onPlay, onStop, onToggleLoop, onDismiss } = {}) {
   const modal = document.querySelector('.gt-lesson-modal');
   modal?.querySelector('.gt-lesson-modal__dismiss')?.addEventListener('click', () => {
     // The panel itself is always visible (it carries the header controls),
@@ -130,13 +138,18 @@ function wireModal({ onReplay, onToggleLoop, onDismiss } = {}) {
     if ('speechSynthesis' in window) window.speechSynthesis.cancel();
     onDismiss?.();
   });
-  modal?.querySelector('.gt-lesson-modal__replay')?.addEventListener('click', () => onReplay?.());
+  // One button does double duty -- starts the dropdown-picked lesson if
+  // none has run yet, replays the current one otherwise -- instead of a
+  // separate header Play button and modal Replay button for what's really
+  // the same action.
+  modal?.querySelector('.gt-lesson-modal__play')?.addEventListener('click', () => onPlay?.());
+  modal?.querySelector('.gt-lesson-modal__stop')?.addEventListener('click', () => onStop?.());
   modal?.querySelector('.gt-lesson-modal__loop')?.addEventListener('click', () => onToggleLoop?.());
   wireCollapseButton();
 }
 
 // Collapses the modal down to just its controls (Note speed, Notes/string,
-// Replay/Loop/Mute/Dismiss), hiding the narration text -- clicking the same
+// Play/Stop/Loop/Mute/Dismiss), hiding the narration text -- clicking the same
 // button again reveals it. showModal() always resets to collapsed when a
 // lesson starts (narration hidden by default, reveal on request); this
 // toggle just flips that state for as long as the modal stays up.
@@ -152,7 +165,7 @@ function wireCollapseButton() {
 }
 
 // Muting is global audio state (audio.js), not per-lesson -- stays muted
-// across Replay/Loop/switching lessons until explicitly un-muted, and
+// across Play/Loop/switching lessons until explicitly un-muted, and
 // silences ANY sound on the page (not just whatever the modal is
 // narrating), since other clicks (a note dot, a chord card) can't
 // accidentally un-mute the way they'd re-enable audio if this were folded
@@ -176,8 +189,25 @@ function wireMuteButton() {
   sync();
 }
 
+// Independent of wireMuteButton() above -- silences only the spoken
+// narration, leaving note/chord audio untouched.
+function wireNarrationMuteButton() {
+  const btn = document.querySelector('.gt-lesson-modal__mute-narration');
+  if (!btn) return;
+  const sync = () => {
+    btn.setAttribute('aria-pressed', String(narrationMuted));
+    btn.textContent = narrationMuted ? '🗣️ Narration Muted' : '🗣️ Mute Narration';
+  };
+  btn.addEventListener('click', () => {
+    narrationMuted = !narrationMuted;
+    sync();
+    if (narrationMuted && 'speechSynthesis' in window) window.speechSynthesis.cancel();
+  });
+  sync();
+}
+
 // The tempo slider lives in the modal permanently (not per-lesson) -- slow
-// it down once and it stays slow across Replay/Loop and switching lessons,
+// it down once and it stays slow across Play/Loop and switching lessons,
 // which is the point for ear training (repetition at a fixed slow speed).
 function wireTempoSlider(onChange) {
   const slider = document.querySelector('.gt-lesson-modal__tempo-slider');
@@ -256,20 +286,58 @@ function syncModalControls(modalControls = []) {
 // picking one of these navigates instead of playing anything in place.
 const NAV_PREFIX = 'nav:';
 
-export function createLessonPlayer({ fretboard, diatonicChords, lessons, links = [], selectEl, playBtn, pageTitleEl, pageSubtitleEl }) {
+export function createLessonPlayer({ fretboard, diatonicChords, lessons, links = [], selectEl, pageTitleEl, pageSubtitleEl }) {
   let playing = false;
   let looping = false;
   let noteDelayMs = 650; // slowed down via the modal's tempo slider, for ear training
   let chordDelayMs = 1100; // matches the modal's chord-delay slider's HTML default
-  let currentLessonId = null; // so the modal's Replay/Loop buttons know what to run again
+  let currentLessonId = null; // so the modal's Play/Loop buttons know what to run again
   let pendingLessonId = null; // picked in the dropdown but not yet Play-clicked
   let currentRunPromise = Promise.resolve(); // the in-flight runLesson() call, if any -- awaited by a force-priority caller (see runLesson's force option)
+  let runGeneration = 0; // bumped by stopLesson() -- lets an orphaned run's own eventual cleanup recognize it's stale and skip re-doing (or undoing) work stopLesson() already handled
 
   function setLoopButtonState() {
     const btn = document.querySelector('.gt-lesson-modal__loop');
     if (!btn) return;
     btn.setAttribute('aria-pressed', String(looping));
     btn.textContent = looping ? '🔁 Looping…' : '🔁 Loop';
+  }
+
+  // One Play button does double duty (start the pending lesson, or replay
+  // the current one) instead of a separate header Play + modal Replay --
+  // enabled only when there's actually something to play and nothing is
+  // already playing. Stop is the mirror image -- only meaningful mid-play.
+  function syncTransportButtons() {
+    const playModalBtn = document.querySelector('.gt-lesson-modal__play');
+    const stopBtn = document.querySelector('.gt-lesson-modal__stop');
+    if (playModalBtn) playModalBtn.disabled = playing || !(currentLessonId || pendingLessonId);
+    if (stopBtn) stopBtn.disabled = !playing;
+  }
+
+  // Halts playback entirely -- fretboard goes idle, UI re-enables --
+  // without starting anything new. Forces the UI back to idle RIGHT AWAY
+  // instead of waiting for the in-flight run to notice and unwind on its
+  // own: that run might currently be anywhere in its own lesson.run() (its
+  // pre-demo narration/scroll wait, mid-playScaleDemo, or in between) --
+  // fretboard.stopPlayback() aborts an already-started playScaleDemo (and
+  // refuses to let a not-yet-started one begin at all), but the run's
+  // OWN cleanup code below only fires after its await chain finally
+  // resolves, which could be much later. Bumping runGeneration lets that
+  // eventual, now-orphaned cleanup recognize it's stale and skip re-doing
+  // (or undoing) what's already been forced here -- notably the
+  // "if (looping) runLesson(id);" tail check, which would otherwise
+  // immediately restart it once the abort actually takes effect.
+  function stopLesson() {
+    if (!playing) return;
+    looping = false;
+    setLoopButtonState();
+    runGeneration++;
+    fretboard.stopPlayback();
+    playing = false;
+    syncTransportButtons();
+    selectEl.disabled = false;
+    pageTitleEl.style.display = '';
+    pageSubtitleEl.style.display = '';
   }
 
   function renderOptions() {
@@ -291,11 +359,7 @@ export function createLessonPlayer({ fretboard, diatonicChords, lessons, links =
     // Picking a lesson no longer plays it immediately -- it just arms the
     // Play button. The user has to explicitly click Play to start it.
     pendingLessonId = value;
-    if (playBtn) playBtn.disabled = false;
-  });
-
-  playBtn?.addEventListener('click', () => {
-    if (pendingLessonId) runLesson(pendingLessonId);
+    syncTransportButtons();
   });
 
   // `force: true` -- for something that must take over playback right
@@ -314,16 +378,20 @@ export function createLessonPlayer({ fretboard, diatonicChords, lessons, links =
     const lesson = lessons.find((l) => l.id === id);
     if (!lesson) return;
 
+    const myGeneration = ++runGeneration;
     currentRunPromise = (async () => {
       currentLessonId = id;
-      if (playBtn) playBtn.disabled = true;
       syncModalControls(lesson.modalControls);
       playing = true;
+      syncTransportButtons();
       selectEl.disabled = true;
       pageTitleEl.style.display = 'none';
       pageSubtitleEl.style.display = 'none';
 
       setAudioEnabled(true);
+      // Clears any stale Stop from a previous run -- this one is starting
+      // fresh and is allowed to actually play (see gt-fretboard.js#stopPlayback).
+      fretboard.armPlayback();
 
       // focusFrets can be a fixed [start, end], or a function(fretboard) that
       // computes it fresh for whatever key is currently active -- e.g. the
@@ -345,9 +413,15 @@ export function createLessonPlayer({ fretboard, diatonicChords, lessons, links =
         getChordDelayMs: () => chordDelayMs,
       });
 
+      // stopLesson() already forced everything back to idle (and bumped
+      // runGeneration) if it fired while the above was still in flight --
+      // skip re-doing (or undoing) that work, and critically skip the
+      // Loop restart below, which stopLesson() already turned off.
+      if (myGeneration !== runGeneration) return;
+
       playing = false;
+      syncTransportButtons();
       selectEl.disabled = false;
-      if (playBtn) playBtn.disabled = false;
       pageTitleEl.style.display = '';
       pageSubtitleEl.style.display = '';
       // Deliberately left showing the lesson that just played (not reset to
@@ -377,6 +451,13 @@ export function createLessonPlayer({ fretboard, diatonicChords, lessons, links =
     npsSelect.addEventListener('change', () => fretboard.render());
   }
 
+  // Same live-DOM-read pattern as Notes/string (gt-fretboard.js's own
+  // _currentStartingStringIndex() reads this select directly) -- just
+  // re-render on change so picking a different starting string is visible
+  // immediately.
+  const startingStringSelect = document.querySelector('.gt-starting-string-select');
+  if (startingStringSelect) startingStringSelect.addEventListener('change', () => fretboard.render());
+
   wireDirectionToggle();
 
   renderOptions();
@@ -384,8 +465,13 @@ export function createLessonPlayer({ fretboard, diatonicChords, lessons, links =
   wireTempoSlider((ms) => { noteDelayMs = ms; });
   wireChordDelaySlider((ms) => { chordDelayMs = ms; });
   wireMuteButton();
+  wireNarrationMuteButton();
   wireModal({
-    onReplay: () => { if (currentLessonId) runLesson(currentLessonId); },
+    onPlay: () => {
+      const idToRun = currentLessonId || pendingLessonId;
+      if (idToRun) runLesson(idToRun);
+    },
+    onStop: () => stopLesson(),
     onToggleLoop: () => {
       looping = !looping;
       setLoopButtonState();
@@ -397,5 +483,6 @@ export function createLessonPlayer({ fretboard, diatonicChords, lessons, links =
       lastSection?.classList.remove(HIGHLIGHT_CLASS);
     },
   });
+  syncTransportButtons(); // Play starts disabled -- nothing picked yet, nothing playing
   return { runLesson };
 }

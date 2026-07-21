@@ -19,7 +19,7 @@ test('lessons dropdown is populated; picking a lesson arms Play but does not aut
   // smoke.spec.js fix).
   await expect.poll(() => select.locator('option').count()).toBeGreaterThan(1);
 
-  const playBtn = page.locator('.gt-lesson-card__play-btn');
+  const playBtn = page.locator('.gt-lesson-modal__play');
   await expect(playBtn).toBeDisabled();
 
   await select.selectOption('what-is-a-chord');
@@ -58,7 +58,7 @@ test('diatonic chords grid is hidden until the Chords lesson is picked', async (
   await expect(grid).toBeHidden();
 
   await page.locator('.gt-lesson-select').selectOption('chords');
-  await page.locator('.gt-lesson-card__play-btn').click();
+  await page.locator('.gt-lesson-modal__play').click();
   await expect(grid).toBeVisible({ timeout: 5000 });
 });
 
@@ -71,7 +71,7 @@ test('header hides while a lesson plays and returns once it finishes', async ({ 
   expect(idleText).toContain('Guitar Trainer');
 
   await page.locator('.gt-lesson-select').selectOption('what-is-a-chord');
-  await page.locator('.gt-lesson-card__play-btn').click();
+  await page.locator('.gt-lesson-modal__play').click();
   await expect(title).toBeHidden();
 
   // what-is-a-chord's demo runs for a few seconds -- wait for the header
@@ -94,7 +94,7 @@ test('the first chord of the next Chords-lesson pass already reflects the advanc
   });
 
   await page.locator('.gt-lesson-select').selectOption('chords');
-  await page.locator('.gt-lesson-card__play-btn').click();
+  await page.locator('.gt-lesson-modal__play').click();
   // Speed the pass along so the test doesn't wait on the default 1.1s/chord tempo.
   await page.locator('.gt-lesson-modal__chord-delay-slider').fill('500');
 
@@ -104,7 +104,7 @@ test('the first chord of the next Chords-lesson pass already reflects the advanc
   await expect(page.locator('gt-fretboard')).toHaveJSProperty('_inversion', 'first');
 
   await page.evaluate(() => { window.__firstPluckInversion = null; });
-  await page.locator('.gt-lesson-modal__replay').click();
+  await page.locator('.gt-lesson-modal__play').click();
 
   await expect.poll(() => page.evaluate(() => window.__firstPluckInversion), { timeout: 8000 }).toBe('first');
 });
@@ -112,10 +112,10 @@ test('the first chord of the next Chords-lesson pass already reflects the advanc
 // Issue #24 -- changing Mode while the Modes lesson is playing left the
 // fretboard showing whatever the PREVIOUS mode's playthrough left on
 // screen; picking a new mode has to actually re-run the demo, the same as
-// clicking Replay, not just silently update the dropdown's own label.
+// clicking Play again, not just silently update the dropdown's own label.
 test('changing Mode while the Modes lesson is active re-triggers the demo', async ({ page }) => {
   await page.locator('.gt-lesson-select').selectOption('modes');
-  await page.locator('.gt-lesson-card__play-btn').click();
+  await page.locator('.gt-lesson-modal__play').click();
 
   // Wait for the initial playthrough to finish -- the lesson select
   // re-enables once playing stops (same signal used by the inversion test
@@ -135,4 +135,46 @@ test('changing Mode while the Modes lesson is active re-triggers the demo', asyn
 
   await expect(page.locator('.gt-lesson-select')).toBeEnabled({ timeout: 15000 });
   await expect.poll(() => page.locator('.gt-dot').count()).toBe(18);
+});
+
+// Issue #25 -- Stop halts playback entirely (fretboard goes idle, UI
+// re-enables) without starting anything new, distinct from changing Mode
+// mid-demo (which stops AND immediately restarts).
+test('Stop halts an in-progress lesson and re-enables the UI', async ({ page }) => {
+  await page.locator('.gt-lesson-select').selectOption('major-scale');
+  await page.locator('.gt-lesson-modal__play').click();
+
+  const playBtn = page.locator('.gt-lesson-modal__play');
+  const stopBtn = page.locator('.gt-lesson-modal__stop');
+  const select = page.locator('.gt-lesson-select');
+
+  await expect(playBtn).toBeDisabled();
+  await expect(stopBtn).toBeEnabled();
+  await expect(select).toBeDisabled();
+
+  await stopBtn.click();
+
+  await expect(select).toBeEnabled();
+  await expect(playBtn).toBeEnabled();
+  await expect(stopBtn).toBeDisabled();
+});
+
+// Issue #25 -- a separate mute-narration toggle, independent of the main
+// Mute button (which only covers note/chord audio).
+test('the narration-mute toggle is independent of the main Mute button', async ({ page }) => {
+  const mute = page.locator('.gt-lesson-modal__mute');
+  const muteNarration = page.locator('.gt-lesson-modal__mute-narration');
+
+  await expect(mute).toHaveAttribute('aria-pressed', 'false');
+  await expect(muteNarration).toHaveAttribute('aria-pressed', 'false');
+
+  await muteNarration.click();
+  await expect(muteNarration).toHaveAttribute('aria-pressed', 'true');
+  // Toggling narration must not touch the separate audio mute.
+  await expect(mute).toHaveAttribute('aria-pressed', 'false');
+
+  await mute.click();
+  await expect(mute).toHaveAttribute('aria-pressed', 'true');
+  // Toggling audio must not un-mute narration.
+  await expect(muteNarration).toHaveAttribute('aria-pressed', 'true');
 });

@@ -51,24 +51,33 @@
   color: var(--text-primary, #f9fafb);
 }
 
-/* Lives in the fretboard card's own header row now (alongside Numbers/Key/
-   Notes-per-string/etc), not stacked full-width under the Lessons dropdown
-   -- sized like its header siblings instead of the old standalone block. */
-.gt-lesson-card__play-btn {
+/* Play does double duty (start the pending lesson, or replay the current
+   one) -- kept visually primary/filled so it stands out among the plain
+   outline pills (Stop/Loop/Mute/Dismiss) it shares the actions row with,
+   the same treatment the old standalone header Play button had. */
+.gt-lesson-modal__play {
   border: 1px solid var(--primary, #6366f1);
-  border-radius: 6px;
   background: var(--primary, #6366f1);
   color: #fff;
-  padding: 0.5rem 0.9rem;
-  min-height: 2.75rem; /* 44px touch target */
-  font-size: 0.9rem;
-  font-weight: 600;
-  cursor: pointer;
 }
 
-.gt-lesson-card__play-btn:disabled {
+.gt-lesson-modal__play:disabled {
   opacity: 0.5;
   cursor: default;
   background: transparent;
   color: var(--text-secondary, #9ca3af);
+}
+
+/* Stop only ever matters mid-play -- a quieter warning color (not the same
+   red as a destructive action) so it doesn't compete with Play for
+   attention, but still reads as distinct from the plain Loop/Mute/Dismiss
+   pills. */
+.gt-lesson-modal__stop:not(:disabled) {
+  border-color: #f59e0b;
+  color: #f59e0b;
+}
+
+.gt-lesson-modal__stop:not(:disabled):hover {
+  background: #f59e0b;
+  color: #111827;
 }

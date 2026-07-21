@@ -85,6 +85,10 @@ export class GTFretboard extends HTMLElement {
     // mid-demo) take over right away rather than being silently ignored
     // while the old run is still going.
     this._playbackGen = 0;
+    // Set by stopPlayback(), cleared by armPlayback() -- see their own
+    // comments. Blocks a NOT-yet-started playScaleDemo() call from
+    // beginning at all, not just an already-in-flight one.
+    this._playbackStopped = false;
   }
 
   connectedCallback() {
@@ -182,10 +186,21 @@ export class GTFretboard extends HTMLElement {
     this.render();
   }
 
-  /** The fret on the 6th string (low E) that the scale walk currently starts from -- this fretboard's own root, unless setWalkAnchor() has re-anchored it elsewhere. */
-  _walkAnchorFretOnSixthString() {
+  // Whatever's currently chosen in the header's Starting string select --
+  // read live off the DOM, same pattern as _currentNotesPerString() (the
+  // neck's own rendering and the scale-demo playback both need this, so
+  // both read it from the same place). 0 = 6th string (low E, today's
+  // fixed default) through 5 = 1st string (high E) -- matches
+  // STANDARD_TUNING's own index order directly, no conversion needed.
+  _currentStartingStringIndex() {
+    const select = document.querySelector('.gt-starting-string-select');
+    return select ? Number(select.value) : 0;
+  }
+
+  /** The fret on the currently-chosen starting string (see _currentStartingStringIndex, default the 6th/low E) where the scale walk begins -- this fretboard's own root, unless setWalkAnchor() has re-anchored it elsewhere. */
+  _walkAnchorFret() {
     const anchorPc = this._walkAnchorPc ?? noteNameToPitchClass(this.rootNote);
-    return fretForPitchClass(STANDARD_TUNING[0], anchorPc);
+    return fretForPitchClass(STANDARD_TUNING[this._currentStartingStringIndex()], anchorPc);
   }
 
   /**
@@ -294,11 +309,23 @@ export class GTFretboard extends HTMLElement {
    * Abandons whatever playScaleDemo() run is currently in flight -- it
    * bails out (without finishing its remaining notes) the instant it next
    * checks, instead of always running its whole sequence once started.
-   * For something that needs to take over playback right away (e.g.
-   * changing Mode mid-demo) rather than waiting its turn.
+   * ALSO refuses to let a NOT-yet-started playScaleDemo() call begin at
+   * all (see the _playbackStopped check at its top) until armPlayback()
+   * explicitly re-arms it -- a lesson can be mid-narration (still inside
+   * its own pre-demo await, e.g. showModal's scroll-settle wait) when Stop
+   * is clicked, before playScaleDemo has even captured a generation token
+   * for stopPlayback()'s bump to invalidate; without this flag, that
+   * lesson would go on to start playing its ENTIRE demo moments later,
+   * ignoring Stop entirely.
    */
   stopPlayback() {
     this._playbackGen++;
+    this._playbackStopped = true;
+  }
+
+  /** Re-arms playback after stopPlayback() -- called once by a new run right before it actually intends to play something, so a stale Stop doesn't silently swallow it too. */
+  armPlayback() {
+    this._playbackStopped = false;
   }
 
   /** Whether fret f is within the currently focused/zoomed crop (see _effectiveFocusRange) -- true when there's no active focus (the whole neck is showing). */
@@ -397,6 +424,9 @@ export class GTFretboard extends HTMLElement {
    * of each group sounds/looks.
    */
   async playScaleDemo(delayMs = 650, notesPerString = 3, direction = 'up', beatsPerMeasure = 4) {
+    // A Stop is still in effect -- refuse to start at all until
+    // armPlayback() explicitly re-arms it (see stopPlayback's own comment).
+    if (this._playbackStopped) return;
     this.clearChord();
     // Claims this playback slot -- superseded (by another playScaleDemo
     // call, or by an explicit stopPlayback()) the instant this no longer
@@ -404,7 +434,10 @@ export class GTFretboard extends HTMLElement {
     const myGen = ++this._playbackGen;
     const rootPc = noteNameToPitchClass(this.rootNote);
     const frets = this.fretCount;
-    const rootMidi = STANDARD_TUNING_MIDI[0] + this._walkAnchorFretOnSixthString();
+    // This legacy one-octave branch below always starts on the 6th string
+    // specifically (it's a fixed flashcard demo, not the notesPerString box
+    // pattern) -- unaffected by the Starting-string selector on purpose.
+    const rootMidi = STANDARD_TUNING_MIDI[0] + fretForPitchClass(STANDARD_TUNING[0], this._walkAnchorPc ?? rootPc);
     const resolveNps = () => (typeof notesPerString === 'function' ? notesPerString() : notesPerString);
 
     if (!resolveNps()) {
@@ -435,12 +468,12 @@ export class GTFretboard extends HTMLElement {
     }
 
     // Same per-string algorithm as _scaleWalkPositions -- every string's
-    // search is constrained to the SAME fret (established by the low E
-    // string's own anchor position, see _walkAnchorFretOnSixthString) and
+    // search is constrained to the SAME fret (established by the chosen
+    // Starting string's own anchor position, see _walkAnchorFret) and
     // higher. Nothing below it is allowed, even if that string's own
     // nearest root occurrence would otherwise fall earlier on the neck.
     // Matches what's actually rendered/clickable.
-    const startFret = Math.max(1, this._walkAnchorFretOnSixthString());
+    const startFret = Math.max(1, this._walkAnchorFret());
     const sequence = [];
     for (let s = 0; s < 6; s++) {
       const openPc = STANDARD_TUNING[s];
@@ -761,15 +794,16 @@ export class GTFretboard extends HTMLElement {
     const shown = new Set();
     const extended = new Set();
     const perString = new Array(6).fill(null); // { minFret, maxMidi } once a string has any shown notes
-    // Established once, by the low E string's own anchor position -- every
-    // other string's search is constrained to this SAME fret and higher.
-    // Nothing below it is allowed, even if that string's own nearest root
-    // occurrence would otherwise fall earlier on the neck. Normally this
+    // Established once, by the chosen Starting string's own anchor
+    // position (default the 6th/low E) -- every other string's search is
+    // constrained to this SAME fret and higher. Nothing below it is
+    // allowed, even if that string's own nearest root occurrence would
+    // otherwise fall earlier on the neck. The anchor pitch is normally this
     // fretboard's own root; the Modes lesson re-anchors it at a mode's own
     // tonic instead (setWalkAnchor()) while `rootPc` below -- which decides
     // which notes actually qualify -- always stays the parent key's root,
     // since a mode shares the exact same 7 notes.
-    const startFret = this._walkAnchorFretOnSixthString();
+    const startFret = this._walkAnchorFret();
 
     for (let s = 0; s < 6; s++) {
       const openPc = STANDARD_TUNING[s];

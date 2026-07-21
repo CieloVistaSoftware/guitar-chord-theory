@@ -8,7 +8,7 @@ test.beforeEach(async ({ page }) => {
 // Play-All/Chords-lesson sequence.
 test('the currently-playing chord card scrolls to roughly the viewport center', async ({ page }) => {
   await page.locator('.gt-lesson-select').selectOption('chords');
-  await page.locator('.gt-lesson-card__play-btn').click();
+  await page.locator('.gt-lesson-modal__play').click();
 
   const playingCard = page.locator('.gt-diatonic__chord.is-playing').first();
   await expect(playingCard).toBeVisible({ timeout: 8000 });
@@ -45,7 +45,7 @@ test('changing the Key selector updates the subtitle and fretboard root', async 
 // the old, inaccurate phrasing is gone.
 test('what-is-a-chord copy matches what the fretboard actually renders', async ({ page }) => {
   await page.locator('.gt-lesson-select').selectOption('what-is-a-chord');
-  await page.locator('.gt-lesson-card__play-btn').click();
+  await page.locator('.gt-lesson-modal__play').click();
   // showModal() populates .gt-lesson-modal__content and un-hides the modal
   // together, after a ~400ms scroll-settle delay -- innerText() is a read,
   // not an action, so it never waits for that; wait for the visible modal
@@ -71,7 +71,7 @@ test('changing Key while a chord shape is shown keeps showing a chord shape', as
   // updateFretboard option) -- picking a lesson just reveals the grid;
   // clicking an individual chord card is what puts a shape on the neck.
   await page.locator('.gt-lesson-select').selectOption('chords');
-  await page.locator('.gt-lesson-card__play-btn').click();
+  await page.locator('.gt-lesson-modal__play').click();
   await page.locator('.gt-diatonic__chord').first().click();
   await expect(page.locator('.gt-fretboard__chord-banner')).toBeVisible({ timeout: 8000 });
 
@@ -97,4 +97,23 @@ test('the fret-markers toggle shows and hides the inlay-dot markers', async ({ p
   await toggle.click();
   await expect(toggle).toHaveAttribute('aria-pressed', 'true');
   await expect.poll(markerCount).toBeGreaterThan(0);
+});
+
+// New header control: pick which string the pattern's shared starting
+// fret is anchored to (default the 6th/low E), instead of that always
+// being fixed.
+test('picking a different Starting string re-anchors the shared pattern', async ({ page }) => {
+  await expect.poll(() => page.locator('.gt-dot').count()).toBe(18); // 6 strings x 3 notes/string, default Key C
+
+  await page.locator('.gt-starting-string-select').selectOption('3'); // 3rd string (G)
+
+  // Still a full box pattern, just anchored elsewhere -- not more or fewer dots.
+  await expect.poll(() => page.locator('.gt-dot').count()).toBe(18);
+  // C (the root) falls on the G string (open pitch class G) at fret 5 --
+  // every string's search starts at/after that SAME fret, so nothing
+  // should render below it.
+  const minFret = await page.evaluate(() =>
+    Math.min(...Array.from(document.querySelectorAll('.gt-dot')).map((d) => Number(d.dataset.fret)))
+  );
+  expect(minFret).toBe(5);
 });
