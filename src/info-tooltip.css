@@ -23,12 +23,12 @@
   border-color: var(--primary, #6366f1);
 }
 
+/* The source copy stays inside the button, permanently hidden -- JS
+   (info-tooltip.js) clones its content into a `.gt-info-tooltip--portal`
+   appended to <body> instead, since position:absolute here would get
+   silently clipped by ancestor wb-cards' own overflow:hidden. */
 .gt-info-tooltip {
   display: none;
-  position: absolute;
-  top: 130%;
-  left: 0;
-  z-index: 10;
   width: 320px;
   max-width: min(80vw, 320px);
   padding: 0.75rem 1rem;
@@ -43,10 +43,9 @@
   box-shadow: 0 8px 20px rgba(0, 0, 0, 0.35);
 }
 
-/* Desktop: hover/focus reveals it for free. Touch devices have no hover, so
-   a tap toggles the .is-open class instead (wired in info-tooltip.js). */
-.gt-info-btn:hover .gt-info-tooltip,
-.gt-info-btn:focus-visible .gt-info-tooltip,
-.gt-info-btn.is-open .gt-info-tooltip {
+.gt-info-tooltip--portal {
   display: block;
+  position: fixed;
+  z-index: 1000;
+  overflow-y: auto;
 }

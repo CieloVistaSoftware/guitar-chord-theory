@@ -4,9 +4,23 @@
   "description": "Interactive guitar chord and interval theory, starting in the key of C.",
   "type": "module",
   "scripts": {
-    "dev": "npx serve . -p 4000"
+    "dev": "npx serve . -p 4000",
+    "start": "node scripts/dev-server.js",
+    "test": "playwright test",
+    "postinstall": "node scripts/check-deps.js"
   },
-  "keywords": ["guitar", "music-theory", "chords", "intervals"],
+  "keywords": [
+    "guitar",
+    "music-theory",
+    "chords",
+    "intervals"
+  ],
   "author": "",
-  "license": "MIT"
+  "license": "MIT",
+  "dependencies": {
+    "wb-starter": "file:../wb-starter"
+  },
+  "devDependencies": {
+    "@playwright/test": "^1.60.0"
+  }
 }

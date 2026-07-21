@@ -8,7 +8,7 @@
  * since it's built from pitch-class math, not the hand-curated shape charts.
  */
 import { NOTE_NAMES, pitchClassName, harmonizeMajorScale, CHORD_FORMULAS } from './theory.js';
-import { playChordMidi } from './audio.js';
+import { playChordMidi, setAudioEnabled } from './audio.js';
 
 const QUALITY_COLOR = { major: '#22c55e', minor: '#6366f1', diminished: '#ef4444' };
 const REFERENCE_OCTAVE = 60; // C4, just for the reference-table preview sound
@@ -46,6 +46,7 @@ export function renderFormulaTable(container, rootPc = 0, rootName = 'C') {
 
   container.querySelectorAll('.cs-formula-row[data-midi]').forEach((row) => {
     row.addEventListener('click', () => {
+      setAudioEnabled(true); // this click is the user gesture the browser needs to unlock audio -- no separate toggle button anymore
       const midiNotes = row.dataset.midi.split(',').map(Number);
       playChordMidi(midiNotes);
     });
@@ -79,6 +80,7 @@ export function renderDiatonicTable(container) {
 
   container.querySelectorAll('.cs-diatonic-chip').forEach((chip) => {
     chip.addEventListener('click', () => {
+      setAudioEnabled(true); // this click is the user gesture the browser needs to unlock audio -- no separate toggle button anymore
       const pcs = chip.dataset.pcs.split(',').map(Number);
       playTriadPreview(pcs);
     });

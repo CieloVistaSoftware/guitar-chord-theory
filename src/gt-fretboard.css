@@ -3,6 +3,57 @@ gt-fretboard {
   transform-origin: center center;
 }
 
+/* The card can be resized (x-behavior="resizable") wider than the page's
+   900px centered column (index.html body { max-width: 900px }) -- without
+   this, growing it just overflows the right edge of that column, so the
+   whole card visibly drifts off-center instead of staying in the middle of
+   the viewport. left:50%/translateX(-50%) centers it on the VIEWPORT
+   directly, independent of the parent's own (narrower) width, however wide
+   the card is resized to. */
+.gt-fretboard-card {
+  position: relative;
+  left: 50%;
+  transform: translateX(-50%);
+}
+
+/* The fretboard is inherently a wide, landscape-shaped diagram (6 strings
+   across many frets) -- it doesn't work in a narrow phone-portrait column.
+   Desktop has no such constraint (a desktop window is effectively always
+   "landscape enough"), so this only ever applies below a phone-width
+   breakpoint -- AND only on an actual touchscreen device (pointer:coarse,
+   hover:none), not just a narrow desktop browser window, which still has a
+   mouse (pointer:fine) even when resized down to phone-width. */
+.gt-rotate-hint {
+  display: none;
+}
+
+@media (max-width: 768px) and (orientation: portrait) and (pointer: coarse) and (hover: none) {
+  .gt-rotate-hint {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    gap: 0.5rem;
+    position: absolute;
+    inset: 0;
+    z-index: 40;
+    background: var(--bg-primary, #111827);
+    color: var(--text-primary, #f9fafb);
+    text-align: center;
+    padding: 2rem;
+    font-size: 0.95rem;
+    font-weight: 600;
+  }
+  .gt-rotate-hint__icon {
+    font-size: 2.5rem;
+    animation: gt-rotate-hint-spin 2s ease-in-out infinite;
+  }
+  @keyframes gt-rotate-hint-spin {
+    0%, 100% { transform: rotate(0deg); }
+    50% { transform: rotate(-90deg); }
+  }
+}
+
 .gt-fretboard-card header {
   display: flex;
   flex-wrap: wrap;
@@ -10,6 +61,20 @@ gt-fretboard {
   justify-content: space-between;
   gap: 0.5rem 0.75rem;
   padding: 0.6rem 0.75rem !important;
+}
+
+/* Lives in the header now (was a separate banner inside the card body) --
+   see gt:focus-changed wiring in index.html. */
+.gt-focus-indicator {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.5rem;
+  font-size: 0.85rem;
+  color: var(--text-secondary, #9ca3af);
+}
+
+.gt-focus-indicator[hidden] {
+  display: none;
 }
 
 .gt-fullscreen-btn,
@@ -40,6 +105,8 @@ gt-fretboard {
 
 .gt-fretboard-card:fullscreen {
   position: relative;
+  left: auto;
+  transform: none; /* cancel the breakout-centering trick above -- native fullscreen already fills/centers the viewport on its own */
   display: flex;
   align-items: center;
   justify-content: center;
@@ -76,6 +143,21 @@ gt-fretboard {
   max-height: 85vh;
 }
 
+/* In fullscreen, main becomes a flex-centered container for the SVG alone
+   -- the modal (a normal-flow sibling before <gt-fretboard>) would
+   otherwise become a flex item squeezed in beside it instead of floating
+   over it. Pull it out of flow and pin it to the top, above everything. */
+.gt-fretboard-card:fullscreen .gt-lesson-modal {
+  position: absolute;
+  top: 1rem;
+  left: 1rem;
+  right: 1rem;
+  z-index: 30;
+  max-height: 90vh;
+  overflow: visible;
+  margin-bottom: 0;
+}
+
 /* Clicking the fretboard itself (not just the small button) also toggles
    fullscreen -- cursor:zoom-in on the svg signals that without competing
    with the dots' own pointer cursor for note playback. Pinch/Ctrl+scroll
@@ -85,9 +167,154 @@ gt-fretboard {
    browser's own native page-pinch from competing with our two-finger
    handler over this region. */
 .gt-fretboard-card main {
+  position: relative; /* offsetParent for .gt-lesson-modal's drag/resize bounds */
   cursor: zoom-in;
   overflow: hidden;
   touch-action: none;
+}
+
+/* A lesson's narration -- a panel docked above the fretboard by default (see
+   src/lesson-player.js#showModal), pushing the neck down rather than
+   covering it. Draggable/resizable (x-behavior, index.html) so the learner
+   can pull it down over the neck for a compact view, or resize it, if they
+   want to -- bounded to stay within the card either way. */
+.gt-lesson-modal {
+  width: 100%;
+  overflow: visible;
+  margin-bottom: 0.75rem;
+  background: var(--bg-secondary, #1f2937);
+  border: 2px solid var(--primary, #6366f1);
+  border-radius: var(--radius-md, 8px);
+  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.5);
+  padding: 1rem;
+  cursor: auto; /* the card's own zoom-in cursor shouldn't bleed onto readable text */
+}
+
+.gt-lesson-modal[hidden] {
+  display: none;
+}
+
+.gt-lesson-modal h2 {
+  margin-top: 0;
+}
+
+.gt-lesson-modal__handle-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.5rem;
+  margin-bottom: 0.5rem;
+}
+
+.gt-lesson-modal__handle {
+  display: inline-block;
+  color: var(--text-secondary, #9ca3af);
+  font-size: 0.75rem;
+  font-weight: 600;
+  letter-spacing: 0.05em;
+  text-transform: uppercase;
+  cursor: grab;
+  user-select: none;
+}
+
+.gt-lesson-modal__collapse-btn {
+  border: 1px solid var(--border-color, #4b5563);
+  border-radius: 6px;
+  background: transparent;
+  color: var(--text-secondary, #9ca3af);
+  padding: 0.15rem 0.5rem;
+  font-size: 0.75rem;
+  cursor: pointer;
+}
+
+/* Collapsed: hides only the narration text, leaving the drag/collapse row
+   and every control (tempo, notes-per-string, chord-delay, Replay/Loop/
+   Mute/Dismiss) visible and usable. */
+.gt-lesson-modal.is-collapsed .gt-lesson-modal__content {
+  display: none;
+}
+
+.gt-lesson-modal.wb-draggable--dragging .gt-lesson-modal__handle {
+  cursor: grabbing;
+}
+
+.gt-lesson-modal__actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.5rem;
+}
+
+.gt-lesson-modal__tempo {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 0.5rem;
+  margin-bottom: 0.75rem;
+  font-size: 0.85rem;
+  color: var(--text-secondary, #9ca3af);
+}
+
+.gt-lesson-modal__tempo-slider {
+  accent-color: var(--primary, #6366f1);
+}
+
+.gt-lesson-modal__nps {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  margin-bottom: 0.75rem;
+  font-size: 0.85rem;
+  color: var(--text-secondary, #9ca3af);
+  cursor: pointer;
+}
+
+.gt-lesson-modal__nps-select {
+  color-scheme: dark;
+  border: 1px solid var(--border-color, #4b5563);
+  border-radius: 6px;
+  background: var(--bg-primary, #111827);
+  color: var(--text-primary, #f9fafb);
+  padding: 0.25rem 0.5rem;
+  font-size: 0.85rem;
+  cursor: pointer;
+}
+
+.gt-lesson-modal__nps-select option {
+  background: var(--bg-primary, #111827);
+  color: var(--text-primary, #f9fafb);
+}
+
+.gt-lesson-modal__tempo-value {
+  min-width: 5.5em;
+  font-variant-numeric: tabular-nums;
+}
+
+/* Same touch-friendly resize grip treatment as .gt-fretboard-card's own
+   corner handle (above) -- resizable.js injects a small 12px hit target,
+   too small to reliably grab on a touchscreen. */
+.gt-lesson-modal .wb-resizable__handle--se {
+  width: 32px !important;
+  height: 32px !important;
+  right: -14px !important;
+  bottom: -14px !important;
+  background: transparent !important;
+  border: none !important;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.gt-lesson-modal .wb-resizable__handle--se::after {
+  content: '';
+  width: 12px;
+  height: 12px;
+  border-radius: 50%;
+  background-color: rgba(255, 255, 255, 0.2);
+  border: 1px solid rgba(255, 255, 255, 0.4);
+}
+
+.gt-lesson-modal .wb-resizable__handle--se:hover::after {
+  background-color: var(--primary, #6366f1);
 }
 
 /* wb-starter's resizable behavior sets the handle to a 12px hit target
@@ -166,10 +393,28 @@ gt-fretboard {
 .gt-fretboard__chord-banner {
   display: flex;
   align-items: center;
-  gap: 1rem;
+  gap: 0.5rem;
   margin-bottom: 1rem;
   font-size: 0.95rem;
   color: var(--text-secondary, #9ca3af);
+}
+
+.gt-chord-picker {
+  color-scheme: dark;
+  border: 1px solid var(--border-color, #4b5563);
+  border-radius: 6px;
+  background: var(--bg-primary, #111827);
+  color: var(--text-primary, #f9fafb);
+  padding: 0.3rem 0.5rem;
+  min-height: 2.75rem; /* 44px touch target */
+  font-size: 0.9rem;
+  font-weight: 600;
+  cursor: pointer;
+}
+
+.gt-chord-picker option {
+  background: var(--bg-primary, #111827);
+  color: var(--text-primary, #f9fafb);
 }
 
 .gt-mode-btn--back {
@@ -194,4 +439,32 @@ gt-fretboard {
 
 .gt-dot--bare:hover text {
   opacity: 0.75;
+}
+
+/* Flashes on the exact instant a note is plucked (see pulseNote() in
+   gt-fretboard.js and the gt:chord-note-plucked event) -- a quick glow/scale
+   pop distinct from the constant color-coded fill, so a chord's notes read
+   as "happening now" one at a time instead of just appearing lit as a group. */
+.gt-dot.is-plucked circle {
+  transform-box: fill-box;
+  transform-origin: center;
+  animation: gt-note-pluck 380ms ease-out;
+}
+
+.gt-dot--bare.is-plucked text {
+  transform-box: fill-box;
+  transform-origin: center;
+  animation: gt-note-pluck-bare 380ms ease-out;
+}
+
+@keyframes gt-note-pluck {
+  0% { filter: drop-shadow(0 0 0 rgba(255, 255, 255, 0)); transform: scale(1); }
+  30% { filter: drop-shadow(0 0 8px rgba(255, 255, 255, 0.95)); transform: scale(1.35); }
+  100% { filter: drop-shadow(0 0 0 rgba(255, 255, 255, 0)); transform: scale(1); }
+}
+
+@keyframes gt-note-pluck-bare {
+  0% { opacity: 1; transform: scale(1); }
+  30% { opacity: 1; transform: scale(1.4); }
+  100% { opacity: 1; transform: scale(1); }
 }

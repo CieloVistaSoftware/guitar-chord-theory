@@ -13,9 +13,13 @@ export function wireFullscreenToggle(btn, targetEl) {
 
   const toggle = () => {
     if (isFullscreen()) {
-      document.exitFullscreen();
+      document.exitFullscreen().catch((err) => console.error('[fullscreen] exitFullscreen failed:', err));
     } else {
-      targetEl.requestFullscreen();
+      // requestFullscreen() rejects (silently, with no visible UI change) if
+      // the browser denies it -- e.g. no Permissions-Policy: fullscreen in an
+      // embedding context, or the click handler lost user-activation. Log it
+      // so "nothing happened" is diagnosable instead of a dead end.
+      targetEl.requestFullscreen().catch((err) => console.error('[fullscreen] requestFullscreen failed:', err.name, err.message));
     }
   };
 
@@ -23,11 +27,13 @@ export function wireFullscreenToggle(btn, targetEl) {
 
   // The button is a small target -- clicking anywhere else on the card
   // (the fretboard itself) should also work. Only note dots, the mode/
-  // inversion buttons, the fullscreen button, and the card's own resize
-  // handle (x-behavior="resizable") keep their own click/drag behavior;
-  // everything else on the card falls through to toggle().
+  // inversion buttons, the fullscreen button, the card's own resize handle
+  // (x-behavior="resizable"), and the lesson narration modal (readable
+  // text floats over the fretboard -- see lesson-player.js#showModal) keep
+  // their own click behavior; everything else on the card falls through to
+  // toggle().
   targetEl.addEventListener('click', (e) => {
-    if (e.target.closest('button, a, select, input, .gt-dot, .wb-resizable__handle')) return;
+    if (e.target.closest('button, a, select, input, .gt-dot, .wb-resizable__handle, .gt-lesson-modal')) return;
     toggle();
   });
 

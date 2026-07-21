@@ -74,22 +74,37 @@ export function buildInversionSummary(c) {
   };
 }
 
-/** Package the { positionsByInversion, inversionSummary, showNoteNames } payload a gt:chord-shape-selected event needs. */
+/** Package the { positionsByInversion, inversionSummary, showNoteNames, degree } payload a gt:chord-shape-selected event needs. `degree` (1-7, the scale degree c was harmonized from) lets a Key change re-show the equivalent chord in the new key instead of just dropping back to the scale view -- see index.html's applyKey(). */
 export function buildChordShapeEventDetail(c, showNoteNames) {
   const positionsByInversion = {
     root: buildShapePositions(c, showNoteNames, 'root'),
     first: buildShapePositions(c, showNoteNames, 'first'),
     second: buildShapePositions(c, showNoteNames, 'second'),
   };
-  return { name: c.chordName, positionsByInversion, inversionSummary: buildInversionSummary(c), showNoteNames };
+  return { name: c.chordName, positionsByInversion, inversionSummary: buildInversionSummary(c), showNoteNames, degree: c.degree };
 }
 
-/** Strum c's shape in the given inversion (default root position). */
-export function playChordAudio(c, inversion = 'root') {
+/**
+ * Strum c's shape in the given inversion (default root position). `onNote`,
+ * if given, fires (midi) for each note at the exact moment it's plucked --
+ * lets a caller flash that note on the fretboard in sync with the strum
+ * instead of lighting the whole shape up all at once. Notes always strum in
+ * ascending pitch order -- the inversion's own bass tone (root for root
+ * position, 3rd for 1st, 5th for 2nd) has to sound first, which only holds
+ * if it's genuinely the lowest note played, not just whatever string index
+ * happens to come first in the shape array.
+ *
+ * `strumSeconds` defaults to a quick, realistic 0.06s strum (used by the
+ * Chords lesson / clicking a chord card directly) -- pass a larger value
+ * for ear training, so each note in the chord rings out distinctly instead
+ * of blurring together in under a third of a second.
+ */
+export function playChordAudio(c, inversion = 'root', onNote, strumSeconds = 0.06) {
   const shape = getChordShape(c, inversion);
   if (!shape) return;
   const midiNotes = shape
     .map((fret, s) => (fret === null ? null : STANDARD_TUNING_MIDI[s] + fret))
-    .filter((m) => m !== null);
-  playChordMidi(midiNotes);
+    .filter((m) => m !== null)
+    .sort((a, b) => a - b);
+  playChordMidi(midiNotes, strumSeconds, onNote);
 }

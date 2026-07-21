@@ -39,24 +39,6 @@
     .gt-nav-link:hover {
       text-decoration: underline;
     }
-    .gt-audio-toggle {
-      display: inline-flex;
-      align-items: center;
-      gap: 0.5rem;
-      border: 1px solid var(--border-color, #4b5563);
-      background: transparent;
-      color: var(--text-primary, #f9fafb);
-      border-radius: 999px;
-      padding: 0.4rem 1rem;
-      font-size: 0.9rem;
-      font-weight: 600;
-      cursor: pointer;
-    }
-    .gt-audio-toggle[aria-pressed="true"] {
-      background: var(--primary, #6366f1);
-      border-color: var(--primary, #6366f1);
-      color: #fff;
-    }
     .gt-controls {
       display: flex;
       flex-wrap: wrap;
@@ -95,7 +77,6 @@
   </div>
 
   <div class="gt-controls">
-    <button type="button" id="audio-toggle" class="gt-audio-toggle" aria-pressed="false">🔇 Turn on audio</button>
     <div id="theme-control"></div>
     <label class="gt-key-card">
       Key
@@ -134,7 +115,6 @@
   </script>
   <script type="module">
     import WB from 'wb-starter';
-    import { toggleAudio } from './src/audio.js';
     import { NOTE_NAMES, noteNameToPitchClass } from './src/theory.js';
     import { themecontrol } from 'wb-starter/wb-viewmodels/themecontrol.js';
     import { renderFormulaTable, renderDiatonicTable } from './src/chord-spellings.js';
@@ -145,13 +125,6 @@
     themecontrol(document.getElementById('theme-control'), { target: 'html', default: 'dark' });
 
     renderDiatonicTable(document.getElementById('diatonic-table'));
-
-    const audioToggle = document.getElementById('audio-toggle');
-    audioToggle.addEventListener('click', () => {
-      const on = toggleAudio();
-      audioToggle.setAttribute('aria-pressed', String(on));
-      audioToggle.textContent = on ? '🔊 Audio on — click any chord' : '🔇 Turn on audio';
-    });
 
     const keySelect = document.getElementById('key-select');
     NOTE_NAMES.forEach((note) => {

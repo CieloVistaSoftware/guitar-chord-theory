@@ -113,7 +113,7 @@ export class GTDiatonicChords extends HTMLElement {
       </div>
     `;
 
-    this.querySelector('.gt-diatonic__play-all').addEventListener('click', () => this._playAll());
+    this.querySelector('.gt-diatonic__play-all').addEventListener('click', () => this._playAll(undefined, true));
 
     const tempoSlider = this.querySelector('.gt-diatonic__tempo-slider');
     const tempoValue = this.querySelector('.gt-diatonic__tempo-value');
@@ -131,6 +131,7 @@ export class GTDiatonicChords extends HTMLElement {
 
     this.querySelectorAll('.gt-diatonic__chord').forEach((card) => {
       card.addEventListener('click', () => {
+        setAudioEnabled(true); // this click is the user gesture the browser needs to unlock audio -- no separate toggle button anymore
         const chordName = card.dataset.chord;
 
         // Same chord clicked again -> flip between interval labels (1-♭3-5)
@@ -148,7 +149,9 @@ export class GTDiatonicChords extends HTMLElement {
           bubbles: true,
           detail: buildChordShapeEventDetail(c, this._showNoteNames),
         }));
-        playChordAudio(c, this._inversion);
+        playChordAudio(c, this._inversion, (midi) => {
+          this.dispatchEvent(new CustomEvent('gt:chord-note-plucked', { bubbles: true, detail: { midi } }));
+        });
 
         // The big fretboard above is now showing this chord's root position
         // as note names or intervals (whichever _showNoteNames just picked).
@@ -160,34 +163,64 @@ export class GTDiatonicChords extends HTMLElement {
     });
   }
 
-  /** Walk through all seven diatonic chords in order, strumming and highlighting each in turn. */
-  async _playAll() {
+  /**
+   * Walk through all seven diatonic chords in order, strumming and
+   * highlighting each in turn. `delayMs`, if given, overrides this card's
+   * own tempo slider -- a fixed number, or a function returning the
+   * current value (pass a function, e.g. a shared modal slider's live
+   * value, so changing it mid-playthrough affects the very next chord, not
+   * just the next full run).
+   */
+  async _playAll(delayMs, updateFretboard) {
     if (this._playingAll) return;
     this._playingAll = true;
     setAudioEnabled(true);
-    this.dispatchEvent(new CustomEvent('gt:audio-enabled', { bubbles: true }));
     const btn = this.querySelector('.gt-diatonic__play-all');
     btn.disabled = true;
     btn.textContent = '▶ Playing…';
 
+    const currentDelay = () => (delayMs === undefined ? this._chordDelayMs : (typeof delayMs === 'function' ? delayMs() : delayMs));
+
     for (const c of this._chords) {
       this.querySelectorAll('.gt-diatonic__chord.is-playing').forEach((el) => el.classList.remove('is-playing'));
       const card = this.querySelector(`.gt-diatonic__chord[data-chord="${c.chordName}"]`);
-      if (card) card.classList.add('is-playing');
+      if (card) {
+        card.classList.add('is-playing');
+        card.scrollIntoView({ behavior: 'smooth', block: 'center' });
+      }
 
-      this.dispatchEvent(new CustomEvent('gt:chord-shape-selected', {
-        bubbles: true,
-        detail: buildChordShapeEventDetail(c, false),
-      }));
-      playChordAudio(c, this._inversion);
+      // Only drives the big fretboard's own chord-shape display when asked
+      // to -- the Chords lesson (src/lessons-data.js) plays through this
+      // same grid without touching the fretboard/scrolling to it, since the
+      // grid itself is the whole point of that lesson and already has its
+      // own play control.
+      if (updateFretboard) {
+        this.dispatchEvent(new CustomEvent('gt:chord-shape-selected', {
+          bubbles: true,
+          detail: buildChordShapeEventDetail(c, false),
+        }));
+      }
+      playChordAudio(c, this._inversion, (midi) => {
+        this.dispatchEvent(new CustomEvent('gt:chord-note-plucked', { bubbles: true, detail: { midi } }));
+      });
 
-      await new Promise((resolve) => setTimeout(resolve, this._chordDelayMs));
+      await new Promise((resolve) => setTimeout(resolve, currentDelay()));
     }
 
     this.querySelectorAll('.gt-diatonic__chord.is-playing').forEach((el) => el.classList.remove('is-playing'));
     this._playingAll = false;
     btn.disabled = false;
     btn.textContent = '▶ Play all seven chords';
+  }
+
+  /** Public wrapper so a page-level lesson sequence can drive this same walkthrough, optionally overriding the tempo (see _playAll). Defaults to NOT updating the big fretboard's chord-shape display -- the Chords lesson stays inside this grid; pass updateFretboard:true for the old behavior (e.g. this component's own "Play all seven chords" button). */
+  playAll(delayMs, { updateFretboard = false } = {}) {
+    return this._playAll(delayMs, updateFretboard);
+  }
+
+  /** The diatonic chord at this scale degree (1-7), e.g. getChord(1) is the I chord (C major in the key of C). */
+  getChord(degree) {
+    return this._chords?.find((c) => c.degree === degree) || null;
   }
 
   _renderFingering(c, color) {

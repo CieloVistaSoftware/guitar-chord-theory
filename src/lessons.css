@@ -1,0 +1,74 @@
+.gt-lesson-card main {
+  padding: 1rem;
+}
+
+.gt-lesson-card h2 {
+  margin-top: 0;
+}
+
+.gt-lesson-card__heading-row {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.5rem 1rem;
+}
+
+.gt-lesson-card__heading-row h2 {
+  margin: 0;
+}
+
+#theme-control {
+  padding-bottom: 1rem;
+}
+
+.gt-lesson-select {
+  display: block;
+  width: 100%;
+  color-scheme: dark;
+  border: 1px solid var(--border-color, #4b5563);
+  border-radius: 6px;
+  background: var(--bg-primary, #111827);
+  color: var(--text-primary, #f9fafb);
+  padding: 0.4rem 0.6rem;
+  min-height: 2.75rem; /* 44px touch target */
+  font-size: 0.9rem;
+  font-weight: 600;
+  cursor: pointer;
+}
+
+.gt-lesson-select:disabled {
+  opacity: 0.6;
+  cursor: default;
+}
+
+/* color-scheme alone doesn't reliably darken the native popup list in every
+   browser -- setting background/color directly on option/optgroup is the
+   more robust fix (supported by Chromium/Firefox for the dropdown list). */
+.gt-lesson-select option,
+.gt-lesson-select optgroup {
+  background: var(--bg-primary, #111827);
+  color: var(--text-primary, #f9fafb);
+}
+
+.gt-lesson-card__play-btn {
+  display: block;
+  width: 100%;
+  margin-top: 0.5rem;
+  border: 1px solid var(--primary, #6366f1);
+  border-radius: 6px;
+  background: var(--primary, #6366f1);
+  color: #fff;
+  padding: 0.5rem 0.6rem;
+  min-height: 2.75rem; /* 44px touch target */
+  font-size: 0.9rem;
+  font-weight: 600;
+  cursor: pointer;
+}
+
+.gt-lesson-card__play-btn:disabled {
+  opacity: 0.5;
+  cursor: default;
+  background: transparent;
+  color: var(--text-secondary, #9ca3af);
+}

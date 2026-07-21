@@ -13,6 +13,7 @@
   <link rel="stylesheet" href="src/gt-fretboard.css">
   <link rel="stylesheet" href="src/gt-diatonic-chords.css">
   <link rel="stylesheet" href="src/info-tooltip.css">
+  <link rel="stylesheet" href="src/lessons.css">
   <style>
     body {
       max-width: 900px;
@@ -26,35 +27,6 @@
     .subtitle { color: var(--text-secondary, #9ca3af); margin-top: 0; margin-bottom: 2rem; }
     section { margin-bottom: 2.5rem; }
     h2 { font-size: 1.25rem; }
-    .gt-audio-toggle {
-      display: inline-flex;
-      align-items: center;
-      gap: 0.5rem;
-      border: 1px solid var(--border-color, #4b5563);
-      background: transparent;
-      color: var(--text-primary, #f9fafb);
-      border-radius: 999px;
-      padding: 0.4rem 1rem;
-      font-size: 0.9rem;
-      font-weight: 600;
-      cursor: pointer;
-      margin-bottom: 1.5rem;
-    }
-    .gt-audio-toggle[aria-pressed="true"] {
-      background: var(--primary, #6366f1);
-      border-color: var(--primary, #6366f1);
-      color: #fff;
-    }
-    .gt-controls {
-      display: flex;
-      flex-wrap: wrap;
-      align-items: center;
-      gap: 1rem;
-      margin-bottom: 1.5rem;
-    }
-    .gt-controls .gt-audio-toggle {
-      margin-bottom: 0;
-    }
     .gt-key-card {
       display: inline-flex;
       align-items: center;
@@ -75,47 +47,104 @@
       font-weight: 600;
       cursor: pointer;
     }
-    .gt-nav-links {
-      display: flex;
-      gap: 1rem;
-      margin-bottom: 1rem;
+    /* A running lesson (src/lesson-player.js) scrolls to and glows whichever
+       section it's currently narrating, so the reader's eye follows the
+       lesson instead of having to hunt for what changed. */
+    section {
+      border-radius: var(--radius-md, 8px);
+      transition: box-shadow 0.4s ease, background-color 0.4s ease;
     }
-    .gt-nav-link {
-      display: inline-block;
-      color: var(--primary, #6366f1);
-      font-size: 0.9rem;
+    section.gt-lesson-highlight {
+      box-shadow: 0 0 0 3px var(--primary, #6366f1);
+      background: color-mix(in srgb, var(--primary, #6366f1) 10%, transparent);
+      padding: 1rem;
+    }
+    /* Teaching copy (the heading + explanation a lesson narrates) stays out
+       of the way until that lesson is actually playing -- the Lessons card
+       is the real entry point now, not a wall of always-on text. */
+    .gt-lesson-copy,
+    .gt-lesson-content {
+      display: none;
+    }
+    section.gt-lesson-highlight .gt-lesson-copy,
+    section.gt-lesson-highlight .gt-lesson-content {
+      display: block;
+    }
+    /* Stays up until the learner dismisses it -- a lesson's demo runs on its
+       own timing (see src/lessons-data.js), but the copy explaining it
+       shouldn't vanish out from under them on a fixed clock. */
+    .gt-lesson-dismiss {
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      min-height: 2.75rem; /* 44px touch target */
+      margin-top: 0.75rem;
+      border: 1px solid var(--border-color, #4b5563);
+      border-radius: 999px;
+      background: transparent;
+      color: var(--text-primary, #f9fafb);
+      padding: 0.35rem 1rem;
+      font-family: inherit;
+      font-size: 0.85rem;
       font-weight: 600;
-      text-decoration: none;
+      cursor: pointer;
     }
-    .gt-nav-link:hover {
-      text-decoration: underline;
+    .gt-lesson-dismiss:hover {
+      background: var(--primary, #6366f1);
+      border-color: var(--primary, #6366f1);
+      color: #fff;
     }
   </style>
 </head>
 <body>
-  <h1>Guitar Chord Theory</h1>
-  <p class="subtitle">Starting in the key of <span id="key-subtitle">C</span> — intervals across the fretboard.</p>
-  <div class="gt-nav-links">
-    <a href="spellings.html" class="gt-nav-link">Chord spellings reference →</a>
-    <a href="songs.html" class="gt-nav-link">Songs →</a>
-  </div>
+  <h1 id="page-title">Guitar Trainer</h1>
+  <p class="subtitle" id="page-subtitle">In the key of <span id="key-subtitle">C</span> -- these are the notes found across the fretboard.</p>
 
-  <div class="gt-controls">
-    <button type="button" id="audio-toggle" class="gt-audio-toggle" aria-pressed="false">🔇 Turn on audio</button>
-    <div id="theme-control"></div>
-  </div>
-
-  <section>
-    <h2>What is a chord?</h2>
-    <p>A chord needs at least <strong>3 notes</strong>. A major chord is spelled <strong>1&nbsp;–&nbsp;3&nbsp;–&nbsp;5</strong> (root, major 3rd, perfect 5th).</p>
+  <section id="lessons">
+    <wb-card class="gt-lesson-card" data-clickable="false" data-hoverable="false">
+      <main>
+        <div class="gt-lesson-card__heading-row">
+          <h2>Lessons</h2>
+          <div id="theme-control"></div>
+        </div>
+        <select class="gt-lesson-select"></select>
+        <button type="button" class="gt-lesson-card__play-btn" disabled>▶ Play</button>
+      </main>
+    </wb-card>
   </section>
 
-  <section>
-    <h2>The <span id="key-scale-heading">C</span> major scale, string by string</h2>
-    <p>
-      The whole <span id="key-scale-copy">C</span> major scale laid out across all six strings, labeled 1-7 by
-      scale degree. Click any chord below and its shape shows up here too.
-    </p>
+  <section id="what-is-a-chord">
+    <div class="gt-lesson-copy">
+      <h2>What is a chord?</h2>
+      <p>A chord needs at least <strong>3 notes</strong>. A major chord is spelled <strong>1&nbsp;–&nbsp;3&nbsp;–&nbsp;5</strong> (root, major 3rd, perfect 5th).</p>
+      <p>
+        Look at the fretboard below -- that's a <strong>C major</strong> chord, in open position.
+        The low E string is muted, so it's not part of the shape at all. From there:
+        the <strong>A string, 3rd fret</strong> is marked <strong style="color:#ef4444">1</strong> in red --
+        that's the root, C.
+        The <strong>D string, 2nd fret</strong> is marked <strong style="color:#eab308">3</strong> in yellow --
+        the major 3rd, E.
+        The <strong>G string rings open</strong>, shown as a plain <strong>O</strong> -- that's the 5th, G.
+        The <strong>B string, 1st fret</strong> circles back to <strong style="color:#ef4444">1</strong> --
+        the root, C, again.
+        And the <strong>high E string rings open</strong> too, another plain <strong>O</strong> -- another 3rd, E.
+        Five strings, five notes, but only three different letters -- C, E, and G -- each one just repeated so
+        there's a note ringing on every string you strum, not only three.
+      </p>
+      <button type="button" class="gt-lesson-dismiss">✕ Dismiss</button>
+    </div>
+  </section>
+
+  <section id="scale-lesson">
+    <div class="gt-lesson-copy">
+      <h2>The <span id="key-scale-heading">C</span> major scale, string by string</h2>
+      <p>
+        The whole <span id="key-scale-copy">C</span> major scale laid out across all six strings, labeled 1-7 by
+        scale degree. Click any note to hear it, or pick the <strong>Chords</strong> lesson from the list above to
+        see these same scale degrees build into all seven chords in the key.
+      </p>
+      <button type="button" class="gt-lesson-dismiss">✕ Dismiss</button>
+    </div>
     <wb-card class="gt-fretboard-card" data-clickable="false" data-hoverable="false"
              x-behavior="resizable" data-min-width="400" data-min-height="150" data-aspect-ratio>
       <header>
@@ -124,31 +153,104 @@
           Key
           <select id="key-select"></select>
         </label>
+        <label class="gt-key-card">
+          Notes/string
+          <select class="gt-lesson-modal__nps-select" autocomplete="off">
+            <option value="2">2</option>
+            <option value="3" selected>3</option>
+            <option value="4">4</option>
+            <option value="5">5</option>
+          </select>
+        </label>
+        <label class="gt-key-card">
+          Notes shown
+          <select class="gt-note-view-select" autocomplete="off">
+            <option value="shown" selected>Only those shown</option>
+            <option value="all">All notes</option>
+            <option value="below">Only those below those shown</option>
+            <option value="above">All notes up from the last one</option>
+          </select>
+        </label>
+        <button type="button" class="gt-info-btn" aria-label="What am I looking at?">
+          <span aria-hidden="true">ⓘ</span>
+          <span class="gt-info-tooltip">
+            Every colored dot is a note in the current key's major scale. The number is its
+            <strong>scale degree</strong> (1 through 7); the color is the same for that degree in every key --
+            <strong style="color:#ef4444">1 red</strong>, <strong style="color:#f59e0b">2 orange</strong>,
+            <strong style="color:#eab308">3 yellow</strong>, <strong style="color:#22c55e">4 green</strong>,
+            <strong style="color:#06b6d4">5 cyan</strong>, <strong style="color:#6366f1">6 indigo</strong>,
+            <strong style="color:#a855f7">7 purple</strong>.
+            <br><br>
+            Click any dot to hear that note. Click the <strong>Key</strong> selector, or click a note directly on
+            the neck, to change which note is "1." Click a chord card below and its shape takes over the neck --
+            <strong>← back to the full scale</strong> returns to this view.
+          </span>
+        </button>
+        <span id="focus-indicator" class="gt-focus-indicator" hidden>
+          Zoomed: <span id="focus-range-text"></span>
+          <button type="button" id="show-full-neck-btn" class="gt-mode-btn gt-mode-btn--back">⤢ Show full neck</button>
+        </span>
         <button type="button" class="gt-fullscreen-btn" aria-pressed="false">⛶ Fullscreen</button>
       </header>
       <main>
-        <gt-fretboard root="C" frets="14"></gt-fretboard>
+        <div class="gt-lesson-modal" hidden
+             x-behavior="draggable resizable" data-handle=".gt-lesson-modal__handle" data-bounds="parent"
+             data-min-width="220" data-min-height="140">
+          <div class="gt-lesson-modal__handle-row">
+            <span class="gt-lesson-modal__handle" aria-hidden="true">⠿⠿ drag</span>
+            <button type="button" class="gt-lesson-modal__collapse-btn" aria-pressed="false">▲ Collapse</button>
+          </div>
+          <div class="gt-lesson-modal__content"></div>
+          <label class="gt-lesson-modal__tempo gt-lesson-modal__control" data-control="tempo">
+            Note speed (ear training)
+            <input type="range" class="gt-lesson-modal__tempo-slider" min="300" max="2200" step="100" value="650">
+            <span class="gt-lesson-modal__tempo-value">0.65s/note</span>
+          </label>
+          <label class="gt-lesson-modal__tempo gt-lesson-modal__control" data-control="chordDelay">
+            Chord delay (how long each chord plays/shows)
+            <input type="range" class="gt-lesson-modal__chord-delay-slider" min="500" max="3000" step="100" value="1100">
+            <span class="gt-lesson-modal__chord-delay-value">1.10s/chord</span>
+          </label>
+          <div class="gt-lesson-modal__actions">
+            <button type="button" class="gt-lesson-modal__replay gt-lesson-dismiss">↻ Replay</button>
+            <button type="button" class="gt-lesson-modal__loop gt-lesson-dismiss" aria-pressed="false">🔁 Loop</button>
+            <button type="button" class="gt-lesson-modal__mute gt-lesson-dismiss" aria-pressed="false">🔊 Mute</button>
+            <button type="button" class="gt-lesson-modal__dismiss gt-lesson-dismiss">✕ Dismiss</button>
+          </div>
+        </div>
+        <gt-fretboard root="C" frets="22"></gt-fretboard>
+        <div class="gt-rotate-hint" aria-hidden="true">
+          <span class="gt-rotate-hint__icon">📱↻</span>
+          Rotate your phone sideways for the best view of the fretboard
+        </div>
       </main>
     </wb-card>
+  </section>
 
-    <h2>
-      All seven chords in the key of <span id="key-chords-heading">C</span>
-      <button type="button" class="gt-info-btn" aria-label="How these chords are built">
-        <span aria-hidden="true">ⓘ</span>
-        <span class="gt-info-tooltip">
-          Harmonize the major scale — stack a diatonic 3rd and 5th on top of every
-          scale degree — and you get all seven chords in the key, labeled here with
-          Nashville Numbers. Notice <strong>1, 4, 5</strong> come out major;
-          <strong>2, 3, 6</strong> come out minor; <strong>7</strong> comes out diminished.
-          That pattern (major–minor–minor–major–major–minor–diminished) is fixed for
-          every major key, not just C.
-          <br><br>
-          Each fingering below is <strong>root position</strong> — the chord's own root
-          is the lowest note you play, not the 3rd or 5th.
-        </span>
-      </button>
-    </h2>
-    <gt-diatonic-chords root="C"></gt-diatonic-chords>
+  <section id="chords-lesson">
+    <div class="gt-lesson-copy">
+      <h2>
+        All seven chords in the key of <span id="key-chords-heading">C</span>
+        <button type="button" class="gt-info-btn" aria-label="How these chords are built">
+          <span aria-hidden="true">ⓘ</span>
+          <span class="gt-info-tooltip">
+            Harmonize the major scale — stack a diatonic 3rd and 5th on top of every
+            scale degree — and you get all seven chords in the key, labeled here with
+            Nashville Numbers. Notice <strong>1, 4, 5</strong> come out major;
+            <strong>2, 3, 6</strong> come out minor; <strong>7</strong> comes out diminished.
+            That pattern (major–minor–minor–major–major–minor–diminished) is fixed for
+            every major key, not just C.
+            <br><br>
+            Each fingering below is shown in whichever position the fretboard above is
+            currently on -- <strong>Root Position, 1st Inversion, or 2nd Inversion</strong>.
+            Looping this lesson cycles through all three in turn.
+          </span>
+        </button>
+      </h2>
+    </div>
+    <div class="gt-lesson-content">
+      <gt-diatonic-chords root="C"></gt-diatonic-chords>
+    </div>
   </section>
 
   <script type="importmap">
@@ -159,17 +261,30 @@
     }
   }
   </script>
+  <script>
+    // Shows which local dev-server port this tab is on -- helps tell apart
+    // multiple tabs/projects running on different ports. Skipped when
+    // there's no port at all (e.g. the deployed https://…github.io/ site,
+    // where location.port is empty), so the live title stays plain.
+    if (window.location.port) {
+      document.title += ` (:${window.location.port})`;
+    }
+  </script>
   <script type="module">
     import WB from 'wb-starter';
-    import './src/gt-fretboard.js';
-    import './src/gt-diatonic-chords.js';
-    import { toggleAudio, syncAudioToggleButton } from './src/audio.js';
-    import { NOTE_NAMES } from './src/theory.js';
+    import './src/gt-fretboard.js?v=3';
+    import './src/gt-diatonic-chords.js?v=3';
+    import { NOTE_NAMES, pitchClassName, harmonizeMajorScale, noteNameToPitchClass } from './src/theory.js?v=3';
+    import { buildChordShapeEventDetail } from './src/chord-shape-builder.js?v=3';
     import { themecontrol } from 'wb-starter/wb-viewmodels/themecontrol.js';
-    import { wireFullscreenToggle } from './src/fullscreen-toggle.js';
-    import { wireInfoTooltip } from './src/info-tooltip.js';
-    import { wirePinchZoom } from './src/pinch-zoom.js';
-    import { wireLabelModeToggle } from './src/label-mode-toggle.js';
+    import { wireFullscreenToggle } from './src/fullscreen-toggle.js?v=3';
+    import { wireInfoTooltip } from './src/info-tooltip.js?v=3';
+    import { wirePinchZoom } from './src/pinch-zoom.js?v=3';
+    import { wireFretboardPan } from './src/fretboard-pan.js?v=3';
+    import { wireAutoRecenterOnResize } from './src/auto-recenter.js?v=3';
+    import { wireLabelModeToggle } from './src/label-mode-toggle.js?v=3';
+    import { createLessonPlayer } from './src/lesson-player.js?v=3';
+    import { buildLessons } from './src/lessons-data.js?v=3';
 
     window.WB = WB;
     await WB.scan(document.body);
@@ -177,6 +292,23 @@
     wireFullscreenToggle(document.querySelector('.gt-fullscreen-btn'), document.querySelector('.gt-fretboard-card'));
     document.querySelectorAll('.gt-info-btn').forEach(wireInfoTooltip);
     wirePinchZoom(document.querySelector('.gt-fretboard-card main'), document.querySelector('gt-fretboard'));
+    wireFretboardPan(document.querySelector('.gt-fretboard-card main'), document.querySelector('gt-fretboard'));
+    wireAutoRecenterOnResize(document.querySelector('.gt-fretboard-card'));
+
+    // The "Zoomed to frets X-Y" indicator lives in the header now, not as a
+    // banner inside the card body -- gt-fretboard.js only dispatches the
+    // range, it doesn't render this itself.
+    {
+      const focusIndicator = document.getElementById('focus-indicator');
+      const focusRangeText = document.getElementById('focus-range-text');
+      const fretboardEl = document.querySelector('gt-fretboard');
+      document.getElementById('show-full-neck-btn').addEventListener('click', () => fretboardEl.clearFocus());
+      fretboardEl.addEventListener('gt:focus-changed', (e) => {
+        const range = e.detail.range;
+        focusIndicator.hidden = !range;
+        if (range) focusRangeText.textContent = `frets ${range.start}–${range.end}`;
+      });
+    }
 
     themecontrol(document.getElementById('theme-control'), { target: 'html', default: 'dark' });
 
@@ -184,18 +316,62 @@
     const diatonicChords = document.querySelector('gt-diatonic-chords');
     wireLabelModeToggle(document.querySelector('.gt-label-mode-btn'), fretboard);
     document.addEventListener('gt:chord-shape-selected', (e) => {
-      fretboard.showChordShape(e.detail.name, e.detail.positionsByInversion, e.detail.inversionSummary, e.detail.showNoteNames);
+      fretboard.showChordShape(e.detail.name, e.detail.positionsByInversion, e.detail.inversionSummary, e.detail.showNoteNames, e.detail.degree);
+    });
+    document.addEventListener('gt:chord-note-plucked', (e) => fretboard.pulseNote(e.detail.midi));
+
+    // Shared by the Key dropdown and by clicking a note on the fretboard's
+    // scale view (gt:root-picked) -- both just mean "make this the root."
+    function applyKey(key) {
+      document.getElementById('key-subtitle').textContent = key;
+      document.getElementById('key-scale-heading').textContent = key;
+      document.getElementById('key-scale-copy').textContent = key;
+      document.getElementById('key-chords-heading').textContent = key;
+      // A zoomed focus range is expressed in absolute fret numbers, but
+      // "the root" lands on a different fret in every key -- if the neck is
+      // currently zoomed, re-center that same width on the new key's root
+      // instead of leaving the view parked on the old key's fret range.
+      const priorRange = fretboard.getFocusRange();
+      const span = priorRange ? priorRange.end - priorRange.start : null;
+      // If a chord shape is currently showing, remember which scale degree
+      // it is (1-7) so it can be re-shown re-rooted to the new key instead
+      // of just dropping back to the plain scale view.
+      const priorDegree = fretboard.getChordDegree();
+      const priorShowNoteNames = fretboard.getShowNoteNames();
+      fretboard.clearChord(); // also resets gt-diatonic-chords' selected-chord state via gt:chord-cleared
+      fretboard.setAttribute('root', key);
+      diatonicChords.setAttribute('root', key);
+      if (span !== null) {
+        const newRootFret = fretboard.rootFretOnSixthString();
+        fretboard.focusFrets(newRootFret, newRootFret + span);
+      }
+      if (priorDegree !== undefined) {
+        const c = harmonizeMajorScale(noteNameToPitchClass(key)).find((ch) => ch.degree === priorDegree);
+        if (c) {
+          const detail = buildChordShapeEventDetail(c, priorShowNoteNames);
+          fretboard.showChordShape(detail.name, detail.positionsByInversion, detail.inversionSummary, detail.showNoteNames, detail.degree);
+        }
+      }
+    }
+    document.addEventListener('gt:root-picked', (e) => {
+      const key = pitchClassName(e.detail.pc);
+      keySelect.value = key;
+      applyKey(key);
     });
 
-    const audioToggle = document.getElementById('audio-toggle');
-    const ON_LABEL = '🔊 Audio on — click any note or chord';
-    audioToggle.addEventListener('click', () => {
-      toggleAudio();
-      syncAudioToggleButton(audioToggle, ON_LABEL);
+    createLessonPlayer({
+      fretboard,
+      diatonicChords,
+      lessons: buildLessons({ diatonicChords }),
+      links: [
+        { title: 'Chord spellings reference →', href: 'spellings.html' },
+        { title: 'Songs →', href: 'songs.html' },
+      ],
+      selectEl: document.querySelector('.gt-lesson-select'),
+      playBtn: document.querySelector('.gt-lesson-card__play-btn'),
+      pageTitleEl: document.getElementById('page-title'),
+      pageSubtitleEl: document.getElementById('page-subtitle'),
     });
-    // Pressing a Play button turns audio on automatically -- no need to hunt
-    // for the separate toggle first just to hear the thing you asked to play.
-    document.addEventListener('gt:audio-enabled', () => syncAudioToggleButton(audioToggle, ON_LABEL));
 
     const keySelect = document.getElementById('key-select');
     NOTE_NAMES.forEach((note) => {
@@ -205,16 +381,7 @@
       keySelect.appendChild(option);
     });
     keySelect.value = 'C';
-    keySelect.addEventListener('change', () => {
-      const key = keySelect.value;
-      document.getElementById('key-subtitle').textContent = key;
-      document.getElementById('key-scale-heading').textContent = key;
-      document.getElementById('key-scale-copy').textContent = key;
-      document.getElementById('key-chords-heading').textContent = key;
-      fretboard.clearChord(); // also resets gt-diatonic-chords' selected-chord state via gt:chord-cleared
-      fretboard.setAttribute('root', key);
-      diatonicChords.setAttribute('root', key);
-    });
+    keySelect.addEventListener('change', () => applyKey(keySelect.value));
   </script>
 </body>
 </html>

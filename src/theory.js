@@ -87,6 +87,11 @@ export function intervalAt(rootPc, openPc, fret) {
   return MAJOR_SCALE_INTERVALS.find((iv) => iv.semitones === semitones) || null;
 }
 
+/** The lowest fret (0-11) on a string with the given open pitch class that plays targetPc. */
+export function fretForPitchClass(openPc, targetPc) {
+  return ((targetPc - openPc) % 12 + 12) % 12;
+}
+
 const SCALE_STEP_SEMITONES = MAJOR_SCALE_INTERVALS.map((iv) => iv.semitones); // [0,2,4,5,7,9,11]
 
 /**

@@ -8,9 +8,29 @@
  */
 let ctx = null;
 let enabled = false;
+// Separate from `enabled` -- enabled means "the AudioContext is unlocked and
+// stays that way," muted means "don't make sound right now." Every click
+// handler that plays audio calls setAudioEnabled(true) unconditionally (no
+// separate on/off toggle button anymore), so folding mute into that same
+// flag would mean any other click silently un-mutes. Muting has to survive
+// clicks elsewhere on the page until the user explicitly un-mutes.
+let muted = false;
 
 export function isAudioEnabled() {
   return enabled;
+}
+
+export function isMuted() {
+  return muted;
+}
+
+export function setMuted(next) {
+  muted = next;
+  return muted;
+}
+
+export function toggleMuted() {
+  return setMuted(!muted);
 }
 
 export function setAudioEnabled(next) {
@@ -74,7 +94,7 @@ function buildPluckBuffer(frequency, duration, decay) {
  * `duration` or the tone dies out before the buffer/envelope ends anyway.
  */
 export function playMidi(midi, duration = 1.4, peakGain = 0.3, brightness = 3200, decay = 0.997) {
-  if (!enabled || !ctx) return;
+  if (!enabled || !ctx || muted) return;
   const frequency = midiToFrequency(midi);
   const buffer = buildPluckBuffer(frequency, duration, decay);
 
@@ -108,12 +128,12 @@ export function playMidi(midi, duration = 1.4, peakGain = 0.3, brightness = 3200
  * decay rate (0.9985), since a long duration alone just pads the tail with
  * silence once the tone has already died out.
  */
-export function playChordMidi(midiNotes, strumSeconds = 0.06) {
+export function playChordMidi(midiNotes, strumSeconds = 0.06, onNote) {
   midiNotes.forEach((midi, i) => {
     const isBass = i === 0;
-    setTimeout(
-      () => playMidi(midi, isBass ? 4.5 : 3.5, isBass ? 0.35 : 0.22, isBass ? 2200 : 3400, 0.9985),
-      i * strumSeconds * 1000
-    );
+    setTimeout(() => {
+      playMidi(midi, isBass ? 4.5 : 3.5, isBass ? 0.35 : 0.22, isBass ? 2200 : 3400, 0.9985);
+      onNote?.(midi, i);
+    }, i * strumSeconds * 1000);
   });
 }
