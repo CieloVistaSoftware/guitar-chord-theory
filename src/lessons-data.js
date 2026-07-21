@@ -100,7 +100,11 @@ export function buildLessons({ diatonicChords }) {
       // No fixed crop -- auto-centering (gt-fretboard.js#_effectiveFocusRange)
       // zooms to wherever this mode's own pattern actually falls, same as
       // the main scale lesson, once setWalkAnchor() re-anchors it below.
-      modalControls: ['tempo', 'mode'],
+      // timeSignature is included so the Time signature select AND the
+      // Beat counter next to it (both data-control="timeSignature") are
+      // visible here -- the mode's chord below re-strikes on beat 1 of
+      // every measure, so seeing/changing the time signature matters.
+      modalControls: ['tempo', 'mode', 'timeSignature'],
       async run({ fretboard, showModal, getNoteDelayMs, getNotesPerString, getDirection, getTimeSignature }) {
         await showModal(document.getElementById('modes-lesson'));
         fretboard.clearFocus();
@@ -120,16 +124,18 @@ export function buildLessons({ diatonicChords }) {
         // The mode's own tonic triad -- degree modeIndex+1's diatonic chord
         // in the CURRENT key (harmonizeMajorScale's array is already
         // indexed exactly this way: Ionian=I major, Dorian=ii minor,
-        // Locrian=vii diminished, etc). Struck once, up front, and left to
-        // ring/slowly fade out underneath the whole scale-walk demo -- a
-        // quiet harmonic "home" (gainScale keeps it well under the melody
+        // Locrian=vii diminished, etc). Struck once per MEASURE -- on beat
+        // 1, held through the rest of that measure (4/4: struck on 1, held
+        // through 2-3-4; 3/4: struck on 1, held through 2-3) -- a quiet
+        // harmonic "home" (gainScale keeps it well under the melody
         // notes' own volume) the ear can measure every melody note
-        // against, not a repeated re-strum.
+        // against.
         const modeChord = harmonizeMajorScale(parentRootPc)[modeIndex];
-        playChordAudio(modeChord, 'root', (midi) => {
-          document.dispatchEvent(new CustomEvent('gt:mode-chord-strummed', { bubbles: true, detail: { midi, chordName: modeChord.chordName } }));
-        }, 0.1, 9, 0.4);
-        await fretboard.playScaleDemo(getNoteDelayMs, getNotesPerString, getDirection, getTimeSignature);
+        await fretboard.playScaleDemo(getNoteDelayMs, getNotesPerString, getDirection, getTimeSignature, (measureSeconds) => {
+          playChordAudio(modeChord, 'root', (midi) => {
+            document.dispatchEvent(new CustomEvent('gt:mode-chord-strummed', { bubbles: true, detail: { midi, chordName: modeChord.chordName } }));
+          }, 0.05, measureSeconds, 0.4);
+        });
       },
     },
   ];

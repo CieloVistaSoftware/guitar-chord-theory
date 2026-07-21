@@ -126,10 +126,11 @@ test('changing Mode while the Modes lesson is active re-triggers the demo', asyn
   await expect(page.locator('.gt-lesson-select')).toBeEnabled({ timeout: 15000 });
 
   // The mode's own box pattern (6 strings x the current Notes/string,
-  // default 3) should be on screen -- not every occurrence across the
-  // whole neck, just this mode's own re-anchored walk (see
-  // gt-fretboard.js#setWalkAnchor).
-  await expect.poll(() => page.locator('.gt-dot').count()).toBe(18);
+  // default 3, +1 for the 2nd string's always-on bonus resolving-root
+  // note -- see SECOND_STRING_INDEX) should be on screen -- not every
+  // occurrence across the whole neck, just this mode's own re-anchored
+  // walk (see gt-fretboard.js#setWalkAnchor).
+  await expect.poll(() => page.locator('.gt-dot').count()).toBe(19);
 
   // Changing Mode (the underlying <select> the stepper drives) must
   // re-arm playback exactly like clicking Replay does.
@@ -137,40 +138,46 @@ test('changing Mode while the Modes lesson is active re-triggers the demo', asyn
   await expect(page.locator('.gt-lesson-select')).toBeDisabled();
 
   await expect(page.locator('.gt-lesson-select')).toBeEnabled({ timeout: 15000 });
-  await expect.poll(() => page.locator('.gt-dot').count()).toBe(18);
+  await expect.poll(() => page.locator('.gt-dot').count()).toBe(19);
 });
 
-// The Modes lesson strums that mode's own diatonic triad ONCE, up front
-// (harmonizeMajorScale in the current key, at the mode's own scale degree
-// -- Ionian=I major, Dorian=ii minor, Locrian=vii diminished, etc), and
-// lets it ring/fade out underneath the whole scale-walk demo -- not a
-// repeated re-strum on every melody note.
-test('the Modes lesson strums that mode\'s own chord once, not on every note', async ({ page }) => {
+// The Modes lesson strikes that mode's own diatonic triad (harmonizeMajorScale
+// in the current key, at the mode's own scale degree -- Ionian=I major,
+// Dorian=ii minor, Locrian=vii diminished, etc) once per MEASURE -- on
+// beat 1, held through the rest of that measure -- not once for the whole
+// demo, and not re-struck on every individual note. The Beat counter next
+// to Time signature cycles 1..beatsPerMeasure in step with it.
+test('the Modes lesson strikes that mode\'s own chord once per measure, in step with the Beat counter', async ({ page }) => {
   await page.evaluate(() => {
     window.__strums = [];
+    window.__beats = [];
     document.addEventListener('gt:mode-chord-strummed', (e) => window.__strums.push(e.detail.chordName));
+    document.querySelector('gt-fretboard').addEventListener('gt:beat-changed', (e) => window.__beats.push(e.detail.beat));
   });
 
   await page.locator('.gt-lesson-select').selectOption('modes');
   await page.locator('.gt-lesson-modal__play').click();
 
-  // Ionian (the default mode) on key C is the I chord -- C major -- struck
-  // once (a handful of notes for one guitar-shape strum, not dozens). The
-  // strum's own notes are staggered (a soft strum, not all-at-once, 0.1s
-  // apart) -- give it a full second to finish landing before reading the
-  // baseline count, or a poll caught mid-strum would just record an
-  // arbitrary partial count.
-  await expect.poll(() => page.evaluate(() => window.__strums.length)).toBeGreaterThan(0);
-  await page.waitForTimeout(1000);
-  const strumCountAtStart = await page.evaluate(() => window.__strums.length);
-  expect(strumCountAtStart).toBeLessThanOrEqual(6);
+  // Default Notes/string (3) x 6 strings, deduped, padded out to finish
+  // its last partial measure (see playScaleDemo's beatsForPadding) -> a
+  // clean multiple of 4/4 measures over the whole demo, never a dangling
+  // partial measure at the end. Wait for it to fully finish.
+  await expect(page.locator('.gt-lesson-select')).toBeEnabled({ timeout: 20000 });
 
-  // Wait for the whole demo to finish -- the strum count must not have
-  // grown, proving it rang once instead of being re-struck per note.
-  await expect(page.locator('.gt-lesson-select')).toBeEnabled({ timeout: 15000 });
+  const beats = await page.evaluate(() => window.__beats);
+  expect(beats.length % 4).toBe(0); // no dangling partial measure
+  expect(beats).toEqual([1, 2, 3, 4, 1, 2, 3, 4, 1, 2, 3, 4, 1, 2, 3, 4, 1, 2, 3, 4]);
+
+  // Ionian (the default mode) on key C is the I chord -- C major -- struck
+  // once per measure (5 measures above -> 5 strikes), each a real guitar
+  // strum (a handful of notes, not just one).
   const chordNames = await page.evaluate(() => window.__strums);
-  expect(chordNames.length).toBe(strumCountAtStart);
+  expect(chordNames.length).toBeGreaterThan(5); // more than one note per strike
+  expect(chordNames.length % 5).toBe(0); // an even multiple of 5 strikes
   expect(chordNames.every((name) => name === 'C')).toBe(true);
+
+  // Beat counter shows the last beat played once the demo settles.
+  await expect(page.locator('#beat-counter-value')).toHaveText('4 / 4');
 });
 
 // Play works whenever there are notes on the fretboard to hear, not only
@@ -235,4 +242,19 @@ test('the narration-mute toggle is independent of the main Mute button', async (
   await expect(mute).toHaveAttribute('aria-pressed', 'true');
   // Toggling audio must not un-mute narration.
   await expect(muteNarration).toHaveAttribute('aria-pressed', 'true');
+});
+
+// A page reload (e.g. testing a code change) resumes whichever real
+// lesson was running instead of dropping back to the blank "Choose a
+// lesson" placeholder (sessionStorage, see CURRENT_LESSON_STORAGE_KEY).
+test('reloading the page resumes the lesson that was running', async ({ page }) => {
+  await page.locator('.gt-lesson-select').selectOption('major-scale');
+  await page.locator('.gt-lesson-modal__play').click();
+  await expect(page.locator('.gt-lesson-select')).toHaveValue('major-scale');
+
+  await page.reload();
+
+  await expect(page.locator('.gt-lesson-select')).toHaveValue('major-scale', { timeout: 10000 });
+  // Resuming actually restarts it too, not just re-selects the dropdown.
+  await expect(page.locator('.gt-lesson-select')).toBeDisabled();
 });

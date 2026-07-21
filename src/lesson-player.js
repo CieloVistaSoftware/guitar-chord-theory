@@ -286,6 +286,12 @@ function syncModalControls(modalControls = []) {
 // picking one of these navigates instead of playing anything in place.
 const NAV_PREFIX = 'nav:';
 
+// Persists whichever real lesson is currently running so a page reload
+// (e.g. testing a code change) picks back up on it automatically instead
+// of dropping back to the blank "Choose a lesson" placeholder --
+// sessionStorage survives same-tab reloads but not a brand new tab/session.
+const CURRENT_LESSON_STORAGE_KEY = 'gt-current-lesson';
+
 // Play works whenever there are notes on the fretboard to hear -- not
 // only once a lesson has been explicitly picked from the dropdown. The
 // default scale view is on screen from the moment the page loads, before
@@ -402,6 +408,11 @@ export function createLessonPlayer({ fretboard, diatonicChords, lessons, links =
     const myGeneration = ++runGeneration;
     currentRunPromise = (async () => {
       currentLessonId = id;
+      // Only a real, pickable lesson is worth resuming on reload -- not
+      // the synthetic "just play whatever's on screen" fallback.
+      if (id !== CURRENT_VIEW_LESSON.id) {
+        try { sessionStorage.setItem(CURRENT_LESSON_STORAGE_KEY, id); } catch { /* private browsing, quota, etc -- resuming on reload is a nicety, not essential */ }
+      }
       syncModalControls(lesson.modalControls);
       playing = true;
       syncTransportButtons();
@@ -508,6 +519,21 @@ export function createLessonPlayer({ fretboard, diatonicChords, lessons, links =
       lastSection?.classList.remove(HIGHLIGHT_CLASS);
     },
   });
-  syncTransportButtons(); // Play starts disabled -- nothing picked yet, nothing playing
+  syncTransportButtons();
+
+  // Resume whichever real lesson was running the last time this tab
+  // loaded (see runLesson's persistence above) -- most useful right after
+  // a page reload mid-development, but works the same for any reload.
+  {
+    let resumeId = null;
+    try { resumeId = sessionStorage.getItem(CURRENT_LESSON_STORAGE_KEY); } catch { /* private browsing, etc. */ }
+    if (resumeId && lessons.some((l) => l.id === resumeId)) {
+      selectEl.value = resumeId;
+      pendingLessonId = resumeId;
+      syncTransportButtons();
+      runLesson(resumeId);
+    }
+  }
+
   return { runLesson };
 }

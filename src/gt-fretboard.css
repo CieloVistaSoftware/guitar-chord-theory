@@ -322,6 +322,23 @@ gt-fretboard {
   font-variant-numeric: tabular-nums;
 }
 
+/* Sits inline right after the Time signature select (not its own
+   full-width row) -- cycles 1..beatsPerMeasure while any scale demo plays
+   (see gt-fretboard.js's gt:beat-changed). */
+.gt-beat-counter {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.35rem;
+  padding: 0.15rem 0.6rem;
+  border: 1px solid var(--border-color, #4b5563);
+  border-radius: 999px;
+  font-variant-numeric: tabular-nums;
+}
+
+.gt-beat-counter strong {
+  color: var(--text-primary, #f9fafb);
+}
+
 /* Same touch-friendly resize grip treatment as .gt-fretboard-card's own
    corner handle (above) -- resizable.js injects a small 12px hit target,
    too small to reliably grab on a touchscreen. */

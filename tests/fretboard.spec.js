@@ -103,12 +103,14 @@ test('the fret-markers toggle shows and hides the inlay-dot markers', async ({ p
 // fret is anchored to (default the 6th/low E), instead of that always
 // being fixed.
 test('picking a different Starting string re-anchors the shared pattern', async ({ page }) => {
-  await expect.poll(() => page.locator('.gt-dot').count()).toBe(18); // 6 strings x 3 notes/string, default Key C
+  // 6 strings x 3 notes/string, default Key C, +1 for the 2nd string's
+  // always-on bonus resolving-root note (see SECOND_STRING_INDEX).
+  await expect.poll(() => page.locator('.gt-dot').count()).toBe(19);
 
   await page.locator('.gt-starting-string-select').selectOption('3'); // 3rd string (G)
 
   // Still a full box pattern, just anchored elsewhere -- not more or fewer dots.
-  await expect.poll(() => page.locator('.gt-dot').count()).toBe(18);
+  await expect.poll(() => page.locator('.gt-dot').count()).toBe(19);
   // C (the root) falls on the G string (open pitch class G) at fret 5 --
   // every string's search starts at/after that SAME fret, so nothing
   // should render below it.
@@ -116,4 +118,22 @@ test('picking a different Starting string re-anchors the shared pattern', async 
     Math.min(...Array.from(document.querySelectorAll('.gt-dot')).map((d) => Number(d.dataset.fret)))
   );
   expect(minFret).toBe(5);
+});
+
+// The 2nd string (B) always gets one extra note beyond the base
+// notesPerString -- the resolving root right after its own last note --
+// regardless of key/mode/Notes-per-string (SECOND_STRING_INDEX in
+// gt-fretboard.js).
+test('the 2nd string (B) always shows one extra resolving-root note', async ({ page }) => {
+  // Default Key C, Notes/string 3, Starting string 6th (low E): the B
+  // string's base 3 notes are degrees 5,6,7 at frets 8,10,12 -- fret 13
+  // (root, degree 1) is the always-on bonus note.
+  const bStringDots = await page.evaluate(() =>
+    Array.from(document.querySelectorAll('.gt-dot'))
+      .map((d) => ({ fret: Number(d.dataset.fret), tone: d.dataset.tone, midi: Number(d.dataset.midi) }))
+      .filter((d) => d.midi - d.fret === 59) // B string's own open MIDI (STANDARD_TUNING_MIDI[4])
+      .sort((a, b) => a.fret - b.fret)
+  );
+  expect(bStringDots.map((d) => d.tone)).toEqual(['5', '6', '7', '1']);
+  expect(bStringDots[3].fret).toBe(13);
 });

@@ -141,9 +141,37 @@
       border-color: var(--primary, #6366f1);
       color: #fff;
     }
+    .gt-edit-status-dot {
+      position: fixed;
+      top: 0.6rem;
+      right: 0.6rem;
+      width: 0.75rem;
+      height: 0.75rem;
+      border-radius: 50%;
+      background: #6b7280; /* neutral gray until the first poll lands */
+      box-shadow: 0 0 0 2px rgba(0, 0, 0, 0.4);
+      z-index: 1000;
+      transition: background-color 0.2s ease;
+    }
+    .gt-edit-status-dot--editing {
+      background: #ef4444;
+      animation: gt-edit-status-pulse 1.1s ease-in-out infinite;
+    }
+    .gt-edit-status-dot--ready {
+      background: #22c55e;
+    }
+    @keyframes gt-edit-status-pulse {
+      0%, 100% { opacity: 1; }
+      50% { opacity: 0.4; }
+    }
   </style>
 </head>
 <body>
+  <!-- Polls dev-status.json (edited directly by whoever's making code
+       changes -- see its own comment) so anyone watching the page can
+       tell at a glance whether it's mid-edit (red) or safe to trust as
+       finished/verified (green), without needing to watch the terminal. -->
+  <div id="edit-status-dot" class="gt-edit-status-dot" title="Checking..." aria-hidden="true"></div>
   <h1 id="page-title">Guitar Trainer</h1>
   <p class="subtitle" id="page-subtitle">In the key of <span id="key-subtitle">C</span> -- these are the notes found across the fretboard.</p>
 
@@ -301,6 +329,7 @@
               <option value="5">5/16</option>
               <option value="7">7/16</option>
             </select>
+            <span class="gt-beat-counter">Beat <strong id="beat-counter-value">–</strong></span>
           </span>
           <div class="gt-lesson-modal__actions">
             <button type="button" class="gt-lesson-modal__play gt-lesson-dismiss" disabled>▶ Play</button>
@@ -379,24 +408,49 @@
     if (window.location.port) {
       document.title += ` (:${window.location.port})`;
     }
+
+    // Polls dev-status.json (a plain checked-in file, hand-edited by
+    // whoever's making code changes right now -- set {"editing": true}
+    // before a batch of edits, {"editing": false} once done and verified)
+    // so the corner dot reflects red/green without any server-side
+    // logic -- just a static file this static site already knows how to
+    // serve. Dev-only, same as the port-in-title tweak above: there's
+    // nothing to watch on the deployed site since nobody's editing it live.
+    if (window.location.port) {
+      const dot = document.getElementById('edit-status-dot');
+      async function pollEditStatus() {
+        try {
+          const res = await fetch(`dev-status.json?t=${Date.now()}`, { cache: 'no-store' });
+          const { editing } = await res.json();
+          dot.classList.toggle('gt-edit-status-dot--editing', !!editing);
+          dot.classList.toggle('gt-edit-status-dot--ready', !editing);
+          dot.title = editing ? 'Editing in progress...' : 'Ready -- no changes in flight';
+        } catch {
+          // dev-status.json missing/unreadable -- leave the dot at its
+          // neutral gray rather than guessing.
+        }
+      }
+      pollEditStatus();
+      setInterval(pollEditStatus, 1000);
+    }
   </script>
   <script type="module">
     import WB from 'wb-starter';
-    import './src/gt-fretboard.js?v=9';
-    import './src/gt-diatonic-chords.js?v=9';
-    import { NOTE_NAMES, pitchClassName, harmonizeMajorScale, noteNameToPitchClass } from './src/theory.js?v=9';
-    import { buildChordShapeEventDetail } from './src/chord-shape-builder.js?v=9';
+    import './src/gt-fretboard.js?v=10';
+    import './src/gt-diatonic-chords.js?v=10';
+    import { NOTE_NAMES, pitchClassName, harmonizeMajorScale, noteNameToPitchClass } from './src/theory.js?v=10';
+    import { buildChordShapeEventDetail } from './src/chord-shape-builder.js?v=10';
     import { themecontrol } from 'wb-starter/wb-viewmodels/themecontrol.js';
     // Side-effect only -- each of these self-registers a data-gt-behavior
     // (see src/gt-behaviors.js) instead of being called directly here.
-    import './src/fullscreen-toggle.js?v=9';
-    import './src/info-tooltip.js?v=9';
-    import './src/pinch-zoom.js?v=9';
-    import './src/fretboard-pan.js?v=9';
-    import './src/auto-recenter.js?v=9';
-    import './src/label-mode-toggle.js?v=9';
-    import './src/fret-marker-toggle.js?v=9';
-    import './src/select-stepper.js?v=9';
+    import './src/fullscreen-toggle.js?v=10';
+    import './src/info-tooltip.js?v=10';
+    import './src/pinch-zoom.js?v=10';
+    import './src/fretboard-pan.js?v=10';
+    import './src/auto-recenter.js?v=10';
+    import './src/label-mode-toggle.js?v=10';
+    import './src/fret-marker-toggle.js?v=10';
+    import './src/select-stepper.js?v=10';
     // No ?v= query here -- every gt-*.js behavior module imports this same
     // file as a plain relative path (no query, see e.g. gt-fretboard.js's
     // own './theory.js' import), and ES modules key their identity on the
@@ -405,8 +459,8 @@
     // empty registry, so every registerBehavior() call would land in a
     // different object than the one scanBehaviors() reads from below.
     import { scanBehaviors } from './src/gt-behaviors.js';
-    import { createLessonPlayer } from './src/lesson-player.js?v=9';
-    import { buildLessons } from './src/lessons-data.js?v=9';
+    import { createLessonPlayer } from './src/lesson-player.js?v=10';
+    import { buildLessons } from './src/lessons-data.js?v=10';
 
     window.WB = WB;
     await WB.scan(document.body);
@@ -442,6 +496,21 @@
       fretboard.showChordShape(e.detail.name, e.detail.positionsByInversion, e.detail.inversionSummary, e.detail.showNoteNames, e.detail.degree);
     });
     document.addEventListener('gt:chord-note-plucked', (e) => fretboard.pulseNote(e.detail.midi));
+
+    // The Beat counter next to Time signature -- follows any playScaleDemo
+    // run (major-scale, Modes, or just playing the current view), cycling
+    // 1..beatsPerMeasure and starting over each measure until the whole
+    // demo finishes. Reset to the idle "–" on Stop/Dismiss so it doesn't
+    // linger on whatever beat the last run happened to end on.
+    {
+      const beatValueEl = document.getElementById('beat-counter-value');
+      fretboard.addEventListener('gt:beat-changed', (e) => {
+        beatValueEl.textContent = `${e.detail.beat} / ${e.detail.beatsPerMeasure}`;
+      });
+      const resetBeatCounter = () => { beatValueEl.textContent = '–'; };
+      document.querySelector('.gt-lesson-modal__stop')?.addEventListener('click', resetBeatCounter);
+      document.querySelector('.gt-lesson-modal__dismiss')?.addEventListener('click', resetBeatCounter);
+    }
 
     // Shared by the Key dropdown and by clicking a note on the fretboard's
     // scale view (gt:root-picked) -- both just mean "make this the root."

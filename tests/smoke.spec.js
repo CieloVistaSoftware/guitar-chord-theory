@@ -8,6 +8,8 @@
  * checks that assumption instead of taking it on faith.
  */
 import { test, expect } from '@playwright/test';
+import fs from 'fs';
+import path from 'path';
 
 test('page loads with no failed requests and no console errors', async ({ page }) => {
   const failedRequests = [];
@@ -39,4 +41,25 @@ test('the lessons dropdown is genuinely populated, not just present in the DOM',
   // immediately (this exact gap intermittently produced a 0-count flake
   // under load from the rest of the suite running first).
   await expect.poll(() => page.locator('.gt-lesson-select option').count()).toBeGreaterThan(1);
+});
+
+// The corner status dot polls dev-status.json (a plain checked-in file,
+// hand-edited by whoever's making code changes) so anyone watching the
+// page can tell at a glance whether it's mid-edit (red) or safe to trust
+// as finished (green).
+test('the edit-status dot reflects dev-status.json', async ({ page }) => {
+  const statusPath = path.join(process.cwd(), 'dev-status.json');
+  const original = fs.readFileSync(statusPath, 'utf8');
+  try {
+    await page.goto('/');
+    const dot = page.locator('#edit-status-dot');
+
+    fs.writeFileSync(statusPath, JSON.stringify({ editing: true }));
+    await expect(dot).toHaveClass(/gt-edit-status-dot--editing/, { timeout: 3000 });
+
+    fs.writeFileSync(statusPath, JSON.stringify({ editing: false }));
+    await expect(dot).toHaveClass(/gt-edit-status-dot--ready/, { timeout: 3000 });
+  } finally {
+    fs.writeFileSync(statusPath, original);
+  }
 });

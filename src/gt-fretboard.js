@@ -15,6 +15,13 @@ import { buildChordShapeEventDetail, playChordAudio } from './chord-shape-builde
 
 const PLUCK_FLASH_MS = 380; // how long a note's dot glows after it's plucked
 
+// STANDARD_TUNING's own index order (E,A,D,G,B,E -- low string to high) --
+// index 4 is the B string, the "2nd string" in standard guitar numbering
+// (1st = high E). It always gets one extra note beyond the base
+// notesPerString in the scale walk (see _scaleWalkPositions/playScaleDemo)
+// -- an explicit, always-on exception, not conditioned on key/mode/degree.
+const SECOND_STRING_INDEX = 4;
+
 const FRET_WIDTH = 60;
 const STRING_GAP = 40;
 const FRETBOARD_PAD_LEFT = 75; // wide enough that the open-string dot never overlaps the string-name label
@@ -421,9 +428,20 @@ export class GTFretboard extends HTMLElement {
    * accents every 3rd note, 6/8 every 3rd (felt as two dotted-quarter
    * pulses), etc. Purely a metronome-style accent overlaid on the same
    * note sequence -- it never changes which notes play, only how beat 1
-   * of each group sounds/looks.
+   * of each group sounds/looks. Every note dispatches gt:beat-changed
+   * (detail: { beat, beatsPerMeasure }, beat cycling 1..beatsPerMeasure)
+   * so the header's Beat counter (index.html) can follow along for ANY
+   * lesson using this, not just the ones that also care about beat 1
+   * specifically.
+   *
+   * `onBeatOne`, if given, fires only on beat 1 of every measure, with
+   * that measure's actual duration in seconds (beatsPerMeasure x the
+   * resolved delayMs) -- e.g. the Modes lesson re-strikes that mode's own
+   * chord there and holds it for the measure's length, so it's struck
+   * once per measure (4/4: on 1, held through 2-3-4) rather than once for
+   * the whole demo or on every individual note.
    */
-  async playScaleDemo(delayMs = 650, notesPerString = 3, direction = 'up', beatsPerMeasure = 4) {
+  async playScaleDemo(delayMs = 650, notesPerString = 3, direction = 'up', beatsPerMeasure = 4, onBeatOne) {
     // A Stop is still in effect -- refuse to start at all until
     // armPlayback() explicitly re-arms it (see stopPlayback's own comment).
     if (this._playbackStopped) return;
@@ -478,7 +496,9 @@ export class GTFretboard extends HTMLElement {
     for (let s = 0; s < 6; s++) {
       const openPc = STANDARD_TUNING[s];
       const openMidi = STANDARD_TUNING_MIDI[s];
-      const npsForThisString = resolveNps();
+      // Same always-on exception as _scaleWalkPositions -- the 2nd string
+      // (B) gets one extra note beyond the base notesPerString.
+      const npsForThisString = resolveNps() + (s === SECOND_STRING_INDEX ? 1 : 0);
       const notesOnThisString = [];
       for (let f = startFret; f <= frets && notesOnThisString.length < npsForThisString; f++) {
         if (!intervalAt(rootPc, openPc, f)) continue;
@@ -500,7 +520,7 @@ export class GTFretboard extends HTMLElement {
     });
 
     const resolveDirection = () => (typeof direction === 'function' ? direction() : direction);
-    const toPlay = resolveDirection() === 'down' ? [...dedupedSequence].reverse()
+    let toPlay = resolveDirection() === 'down' ? [...dedupedSequence].reverse()
       : resolveDirection() === 'both' ? [...dedupedSequence, ...[...dedupedSequence].reverse().slice(1)]
       : dedupedSequence;
 
@@ -508,9 +528,30 @@ export class GTFretboard extends HTMLElement {
       const n = typeof beatsPerMeasure === 'function' ? beatsPerMeasure() : beatsPerMeasure;
       return n > 0 ? n : 4;
     };
+    const resolveDelay = () => (typeof delayMs === 'function' ? delayMs() : delayMs);
+
+    // Always finish the measure it's in -- a lone note or two left
+    // dangling at the end (not a full beatsPerMeasure group) would mean
+    // the last chord strike (onBeatOne) never gets its full measure's
+    // worth of melody notes to ring under. Pad by cycling back through
+    // the same sequence from the top rather than just stopping short.
+    const beatsForPadding = resolveBeats();
+    if (toPlay.length % beatsForPadding !== 0) {
+      const original = toPlay;
+      toPlay = original.slice();
+      let cursor = 0;
+      while (toPlay.length % beatsForPadding !== 0) {
+        toPlay.push(original[cursor % original.length]);
+        cursor++;
+      }
+    }
     for (let i = 0; i < toPlay.length; i++) {
       if (this._playbackGen !== myGen) return; // superseded -- abandon the rest of this run
-      await this._playAndWait(toPlay[i], delayMs, i % resolveBeats() === 0);
+      const beats = resolveBeats();
+      const beatNumber = (i % beats) + 1; // 1-indexed, cycling 1..beats
+      this.dispatchEvent(new CustomEvent('gt:beat-changed', { bubbles: true, detail: { beat: beatNumber, beatsPerMeasure: beats } }));
+      if (beatNumber === 1) onBeatOne?.((beats * resolveDelay()) / 1000);
+      await this._playAndWait(toPlay[i], delayMs, beatNumber === 1);
     }
   }
 
@@ -809,7 +850,11 @@ export class GTFretboard extends HTMLElement {
       const openPc = STANDARD_TUNING[s];
       const openMidi = STANDARD_TUNING_MIDI[s];
       const notesOnThisString = [];
-      for (let f = Math.max(1, startFret); f <= frets && notesOnThisString.length < notesPerString; f++) {
+      // The 2nd string (B, index 4) always gets one extra note beyond the
+      // base notesPerString -- explicitly requested, always on regardless
+      // of key/mode/Notes-per-string.
+      const capForThisString = s === SECOND_STRING_INDEX ? notesPerString + 1 : notesPerString;
+      for (let f = Math.max(1, startFret); f <= frets && notesOnThisString.length < capForThisString; f++) {
         if (!intervalAt(rootPc, openPc, f)) continue;
         notesOnThisString.push({ f, midi: openMidi + f });
       }
