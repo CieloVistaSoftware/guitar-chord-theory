@@ -468,3 +468,27 @@ gt-fretboard {
   30% { opacity: 1; transform: scale(1.4); }
   100% { opacity: 1; transform: scale(1); }
 }
+
+/* Beat 1 of a measure under the current time signature (see
+   playScaleDemo's beatsPerMeasure) -- a bigger, gold-tinted version of the
+   same pluck flash, so the downbeat is visibly distinct from the other
+   beats in the measure, not just louder. */
+.gt-dot.is-accented circle {
+  animation: gt-note-pluck-accent 380ms ease-out;
+}
+
+.gt-dot--bare.is-accented text {
+  animation: gt-note-pluck-accent-bare 380ms ease-out;
+}
+
+@keyframes gt-note-pluck-accent {
+  0% { filter: drop-shadow(0 0 0 rgba(250, 204, 21, 0)); transform: scale(1); }
+  30% { filter: drop-shadow(0 0 12px rgba(250, 204, 21, 1)); transform: scale(1.6); }
+  100% { filter: drop-shadow(0 0 0 rgba(250, 204, 21, 0)); transform: scale(1); }
+}
+
+@keyframes gt-note-pluck-accent-bare {
+  0% { opacity: 1; transform: scale(1); }
+  30% { opacity: 1; transform: scale(1.6); filter: drop-shadow(0 0 10px rgba(250, 204, 21, 1)); }
+  100% { opacity: 1; transform: scale(1); }
+}

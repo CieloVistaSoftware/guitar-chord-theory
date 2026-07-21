@@ -55,14 +55,14 @@ export function buildLessons({ diatonicChords }) {
         const rootFret = fretboard.rootFretOnSixthString();
         return [rootFret, rootFret + 12];
       },
-      modalControls: ['tempo'],
-      async run({ fretboard, showModal, getNoteDelayMs, getNotesPerString, getDirection }) {
+      modalControls: ['tempo', 'timeSignature'],
+      async run({ fretboard, showModal, getNoteDelayMs, getNotesPerString, getDirection, getTimeSignature }) {
         await showModal(document.getElementById('scale-lesson'));
-        // Pass all three getters themselves, not snapshots -- so dragging
-        // the tempo slider, changing Notes-per-string, or switching
-        // direction mid-playthrough affects the very next note/string, not
-        // just the next full run.
-        await fretboard.playScaleDemo(getNoteDelayMs, getNotesPerString, getDirection);
+        // Pass every getter itself, not a snapshot -- so dragging the tempo
+        // slider, changing Notes-per-string, switching direction, or
+        // picking a different time signature mid-playthrough affects the
+        // very next note/string, not just the next full run.
+        await fretboard.playScaleDemo(getNoteDelayMs, getNotesPerString, getDirection, getTimeSignature);
       },
     },
     {

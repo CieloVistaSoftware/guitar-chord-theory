@@ -265,6 +265,22 @@
               <option value="6">Locrian</option>
             </select>
           </span>
+          <span class="gt-lesson-modal__tempo gt-lesson-modal__control" data-control="timeSignature">
+            Time signature
+            <select class="gt-time-signature-select" autocomplete="off">
+              <option value="2">2/4</option>
+              <option value="3">3/4</option>
+              <option value="4" selected>4/4</option>
+              <option value="5">5/4</option>
+              <option value="6">6/4</option>
+              <option value="7">7/4</option>
+              <option value="3">6/8</option>
+              <option value="3">9/8</option>
+              <option value="3">12/8</option>
+              <option value="5">5/16</option>
+              <option value="7">7/16</option>
+            </select>
+          </span>
           <div class="gt-lesson-modal__actions">
             <button type="button" class="gt-lesson-modal__replay gt-lesson-dismiss">↻ Replay</button>
             <button type="button" class="gt-lesson-modal__loop gt-lesson-dismiss" aria-pressed="false">🔁 Loop</button>
@@ -343,20 +359,20 @@
   </script>
   <script type="module">
     import WB from 'wb-starter';
-    import './src/gt-fretboard.js?v=4';
-    import './src/gt-diatonic-chords.js?v=4';
-    import { NOTE_NAMES, pitchClassName, harmonizeMajorScale, noteNameToPitchClass } from './src/theory.js?v=4';
-    import { buildChordShapeEventDetail } from './src/chord-shape-builder.js?v=4';
+    import './src/gt-fretboard.js?v=5';
+    import './src/gt-diatonic-chords.js?v=5';
+    import { NOTE_NAMES, pitchClassName, harmonizeMajorScale, noteNameToPitchClass } from './src/theory.js?v=5';
+    import { buildChordShapeEventDetail } from './src/chord-shape-builder.js?v=5';
     import { themecontrol } from 'wb-starter/wb-viewmodels/themecontrol.js';
-    import { wireFullscreenToggle } from './src/fullscreen-toggle.js?v=4';
-    import { wireInfoTooltip } from './src/info-tooltip.js?v=4';
-    import { wirePinchZoom } from './src/pinch-zoom.js?v=4';
-    import { wireFretboardPan } from './src/fretboard-pan.js?v=4';
-    import { wireAutoRecenterOnResize } from './src/auto-recenter.js?v=4';
-    import { wireLabelModeToggle } from './src/label-mode-toggle.js?v=4';
-    import { createLessonPlayer } from './src/lesson-player.js?v=4';
-    import { buildLessons } from './src/lessons-data.js?v=4';
-    import { wireStepper } from './src/select-stepper.js?v=4';
+    import { wireFullscreenToggle } from './src/fullscreen-toggle.js?v=5';
+    import { wireInfoTooltip } from './src/info-tooltip.js?v=5';
+    import { wirePinchZoom } from './src/pinch-zoom.js?v=5';
+    import { wireFretboardPan } from './src/fretboard-pan.js?v=5';
+    import { wireAutoRecenterOnResize } from './src/auto-recenter.js?v=5';
+    import { wireLabelModeToggle } from './src/label-mode-toggle.js?v=5';
+    import { createLessonPlayer } from './src/lesson-player.js?v=5';
+    import { buildLessons } from './src/lessons-data.js?v=5';
+    import { wireStepper } from './src/select-stepper.js?v=5';
 
     window.WB = WB;
     await WB.scan(document.body);
@@ -463,7 +479,7 @@
     // final initial value -- wiring it earlier left the Key stepper's
     // label blank until the first click, since key-select's <option>s
     // don't exist yet at that point in the script.
-    ['#key-select', '.gt-lesson-modal__nps-select', '.gt-note-view-select', '.gt-direction-select', '.gt-mode-select']
+    ['#key-select', '.gt-lesson-modal__nps-select', '.gt-note-view-select', '.gt-direction-select', '.gt-mode-select', '.gt-time-signature-select']
       .forEach((sel) => wireStepper(document.querySelector(sel)));
   </script>
 </body>

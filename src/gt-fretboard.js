@@ -174,18 +174,23 @@ export class GTFretboard extends HTMLElement {
    * falls outside the current focused/zoomed fret range. Returns whether it
    * actually flashed something, so a caller can also skip playing audio for
    * a note nothing on screen corresponds to (see _playAndWait).
+   *
+   * `accented` marks it as beat 1 of a measure (see playScaleDemo's time
+   * signature) -- an extra CSS class for a visibly bigger/brighter flash,
+   * so the downbeat reads visually as well as audibly.
    */
-  pulseNote(midi) {
+  pulseNote(midi, accented = false) {
     const dot = this.querySelector(`.gt-dot[data-midi="${midi}"]`);
     if (!dot) return false;
     if (dot.dataset.fret !== undefined && !this._isFretInView(Number(dot.dataset.fret))) return false;
-    dot.classList.remove('is-plucked');
+    dot.classList.remove('is-plucked', 'is-accented');
     // Force a reflow so re-adding the class restarts the CSS animation even
     // if the same note is plucked twice in a row (e.g. root position doubles
     // back on itself in some inversions).
     void dot.getBoundingClientRect();
     dot.classList.add('is-plucked');
-    setTimeout(() => dot.classList.remove('is-plucked'), PLUCK_FLASH_MS);
+    if (accented) dot.classList.add('is-accented');
+    setTimeout(() => dot.classList.remove('is-plucked', 'is-accented'), PLUCK_FLASH_MS);
     return true;
   }
 
@@ -202,9 +207,16 @@ export class GTFretboard extends HTMLElement {
    * Silent (no audio) if the note's dot isn't actually visible right now --
    * hearing a note with nothing on screen to correlate it to is confusing.
    * The rhythm still holds its place either way; only the sound is skipped.
+   *
+   * `accented` marks "beat 1" of a measure under the current time signature
+   * (see playScaleDemo) -- louder and brighter, the way a metronome/count-
+   * in accents beat 1, plus a brief CSS accent ring on the dot itself so
+   * the downbeat is visible as well as audible.
    */
-  async _playAndWait(midi, delayMs) {
-    if (this.pulseNote(midi)) playMidi(midi);
+  async _playAndWait(midi, delayMs, accented = false) {
+    const visible = this.pulseNote(midi, accented);
+    if (visible && accented) playMidi(midi, 1.4, 0.5, 4200);
+    else if (visible) playMidi(midi);
     const ms = typeof delayMs === 'function' ? delayMs() : delayMs;
     await new Promise((resolve) => setTimeout(resolve, ms));
   }
@@ -232,8 +244,17 @@ export class GTFretboard extends HTMLElement {
    * high-E ascent; 'down' plays that exact same set of notes in reverse
    * (high to low); 'both' plays the ascent then immediately back down
    * (skipping an immediate repeat of the turnaround note).
+   *
+   * `beatsPerMeasure` (fixed number or a live-getter, default 4 -- i.e. felt
+   * in 4/4) accents every Nth note as "beat 1" of a measure (louder/
+   * brighter audio + a visual accent ring, see _playAndWait/pulseNote) --
+   * the header's Time signature select drives this (index.html), so 3/4
+   * accents every 3rd note, 6/8 every 3rd (felt as two dotted-quarter
+   * pulses), etc. Purely a metronome-style accent overlaid on the same
+   * note sequence -- it never changes which notes play, only how beat 1
+   * of each group sounds/looks.
    */
-  async playScaleDemo(delayMs = 650, notesPerString = 3, direction = 'up') {
+  async playScaleDemo(delayMs = 650, notesPerString = 3, direction = 'up', beatsPerMeasure = 4) {
     this.clearChord();
     const rootPc = noteNameToPitchClass(this.rootNote);
     const frets = this.fretCount;
@@ -290,8 +311,12 @@ export class GTFretboard extends HTMLElement {
       : resolveDirection() === 'both' ? [...sequence, ...[...sequence].reverse().slice(1)]
       : sequence;
 
-    for (const midi of toPlay) {
-      await this._playAndWait(midi, delayMs);
+    const resolveBeats = () => {
+      const n = typeof beatsPerMeasure === 'function' ? beatsPerMeasure() : beatsPerMeasure;
+      return n > 0 ? n : 4;
+    };
+    for (let i = 0; i < toPlay.length; i++) {
+      await this._playAndWait(toPlay[i], delayMs, i % resolveBeats() === 0);
     }
   }
 

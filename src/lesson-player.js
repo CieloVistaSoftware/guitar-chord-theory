@@ -180,6 +180,13 @@ function getNotesPerString() {
   return select ? Number(select.value) : 3;
 }
 
+// Same live-read pattern -- how many notes make up a measure (accent every
+// Nth note as "beat 1"). Falls back to 4 (4/4) if the control isn't there.
+function getTimeSignature() {
+  const select = document.querySelector('.gt-time-signature-select');
+  return select ? Number(select.value) : 4;
+}
+
 // The Direction toggle (up/down/both) only makes sense -- and is only shown
 // -- when notesPerString is 2 (see wireDirectionToggle). Reads live off the
 // DOM, same pattern as getNotesPerString, falling back to 'up' (today's
@@ -308,6 +315,7 @@ export function createLessonPlayer({ fretboard, diatonicChords, lessons, links =
       getNoteDelayMs: () => noteDelayMs,
       getNotesPerString,
       getDirection,
+      getTimeSignature,
       getChordDelayMs: () => chordDelayMs,
     });
 
