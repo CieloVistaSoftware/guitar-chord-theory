@@ -148,6 +148,27 @@ function getNotesPerString() {
   return select ? Number(select.value) : 3;
 }
 
+// The Direction toggle (up/down/both) only makes sense -- and is only shown
+// -- when notesPerString is 2 (see wireDirectionToggle). Reads live off the
+// DOM, same pattern as getNotesPerString, falling back to 'up' (today's
+// only behavior) whenever the toggle isn't present/visible.
+function getDirection() {
+  const select = document.querySelector('.gt-direction-select');
+  return select && !select.closest('.gt-direction-card')?.hidden ? select.value : 'up';
+}
+
+// Shows the Direction toggle only when Notes-per-string is exactly 2 --
+// every other value keeps today's up-only walk, so the control would just
+// be confusing/inert clutter otherwise.
+function wireDirectionToggle() {
+  const npsSelect = document.querySelector('.gt-lesson-modal__nps-select');
+  const directionCard = document.querySelector('.gt-direction-card');
+  if (!npsSelect || !directionCard) return;
+  const sync = () => { directionCard.hidden = npsSelect.value !== '2'; };
+  npsSelect.addEventListener('change', sync);
+  sync();
+}
+
 // How long each chord plays/stays highlighted -- the Chords lesson's own
 // equivalent of the note-speed slider above. Same live-getter pattern.
 function wireChordDelaySlider(onChange) {
@@ -245,6 +266,7 @@ export function createLessonPlayer({ fretboard, diatonicChords, lessons, links =
       showModal,
       getNoteDelayMs: () => noteDelayMs,
       getNotesPerString,
+      getDirection,
       getChordDelayMs: () => chordDelayMs,
     });
 
@@ -282,6 +304,8 @@ export function createLessonPlayer({ fretboard, diatonicChords, lessons, links =
   // different Notes-shown view (all/shown/below/above) redraws immediately.
   const noteViewSelect = document.querySelector('.gt-note-view-select');
   noteViewSelect?.addEventListener('change', () => fretboard.render());
+
+  wireDirectionToggle();
 
   renderOptions();
   wireDismissButtons();

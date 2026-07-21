@@ -54,12 +54,13 @@ export function buildLessons({ diatonicChords }) {
         return [rootFret, rootFret + 12];
       },
       modalControls: ['tempo'],
-      async run({ fretboard, showModal, getNoteDelayMs, getNotesPerString }) {
+      async run({ fretboard, showModal, getNoteDelayMs, getNotesPerString, getDirection }) {
         await showModal(document.getElementById('scale-lesson'));
-        // Pass both getters themselves, not snapshots -- so dragging the
-        // tempo slider or changing Notes-per-string mid-playthrough affects
-        // the very next note/string, not just the next full run.
-        await fretboard.playScaleDemo(getNoteDelayMs, getNotesPerString);
+        // Pass all three getters themselves, not snapshots -- so dragging
+        // the tempo slider, changing Notes-per-string, or switching
+        // direction mid-playthrough affects the very next note/string, not
+        // just the next full run.
+        await fretboard.playScaleDemo(getNoteDelayMs, getNotesPerString, getDirection);
       },
     },
     {

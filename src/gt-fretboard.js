@@ -160,10 +160,25 @@ export class GTFretboard extends HTMLElement {
     return this._inversion;
   }
 
-  /** Briefly flash the dot for this exact pitch -- fired in sync with a note as it's actually plucked (see gt:chord-note-plucked). No-op if that pitch isn't currently on screen (e.g. an open string during a scale run). */
+  /** Whether fret f is within the currently focused/zoomed crop (see focusFrets/_focusRange) -- true when there's no active focus (the whole neck is showing). */
+  _isFretInView(fret) {
+    if (!this._focusRange) return true;
+    return fret >= this._focusRange.start && fret <= this._focusRange.end;
+  }
+
+  /**
+   * Briefly flash the dot for this exact pitch -- fired in sync with a note
+   * as it's actually plucked (see gt:chord-note-plucked). No-op if that
+   * pitch isn't currently on screen, either because no dot exists for it at
+   * all (e.g. an open string during a scale run) or because it exists but
+   * falls outside the current focused/zoomed fret range. Returns whether it
+   * actually flashed something, so a caller can also skip playing audio for
+   * a note nothing on screen corresponds to (see _playAndWait).
+   */
   pulseNote(midi) {
     const dot = this.querySelector(`.gt-dot[data-midi="${midi}"]`);
-    if (!dot) return;
+    if (!dot) return false;
+    if (dot.dataset.fret !== undefined && !this._isFretInView(Number(dot.dataset.fret))) return false;
     dot.classList.remove('is-plucked');
     // Force a reflow so re-adding the class restarts the CSS animation even
     // if the same note is plucked twice in a row (e.g. root position doubles
@@ -171,6 +186,7 @@ export class GTFretboard extends HTMLElement {
     void dot.getBoundingClientRect();
     dot.classList.add('is-plucked');
     setTimeout(() => dot.classList.remove('is-plucked'), PLUCK_FLASH_MS);
+    return true;
   }
 
   /** The fret on the 6th string (low E) where this fretboard's current root falls -- the standard starting position for a movable scale pattern. Used by playScaleDemo() and by lessons that need to zoom the neck to wherever "the 1" actually is for whatever key is active. */
@@ -183,10 +199,12 @@ export class GTFretboard extends HTMLElement {
    * function returning the current value -- pass a function, e.g. a tempo
    * slider's live value, when the delay needs to take effect on the very
    * next note if it changes mid-playthrough, not just on the next call).
+   * Silent (no audio) if the note's dot isn't actually visible right now --
+   * hearing a note with nothing on screen to correlate it to is confusing.
+   * The rhythm still holds its place either way; only the sound is skipped.
    */
   async _playAndWait(midi, delayMs) {
-    this.pulseNote(midi);
-    playMidi(midi);
+    if (this.pulseNote(midi)) playMidi(midi);
     const ms = typeof delayMs === 'function' ? delayMs() : delayMs;
     await new Promise((resolve) => setTimeout(resolve, ms));
   }
@@ -207,8 +225,15 @@ export class GTFretboard extends HTMLElement {
    * one-octave "next scale degree, wherever it falls" walk instead (used by
    * e.g. a plain flashcard demo where you just want each of the 7 degrees
    * once, not a playable fingering pattern).
+   *
+   * `direction` -- 'up' (default), 'down', or 'both' -- only meaningfully
+   * offered in the UI when notesPerString is 2 (see index.html's 3-way
+   * toggle), but works for any notesPerString: 'up' is today's low-E-to-
+   * high-E ascent; 'down' plays that exact same set of notes in reverse
+   * (high to low); 'both' plays the ascent then immediately back down
+   * (skipping an immediate repeat of the turnaround note).
    */
-  async playScaleDemo(delayMs = 650, notesPerString = 3) {
+  async playScaleDemo(delayMs = 650, notesPerString = 3, direction = 'up') {
     this.clearChord();
     const rootPc = noteNameToPitchClass(this.rootNote);
     const frets = this.fretCount;
@@ -242,6 +267,7 @@ export class GTFretboard extends HTMLElement {
     }
 
     let pitchFloor = rootMidi;
+    const sequence = [];
     for (let s = 0; s < 6; s++) {
       const openPc = STANDARD_TUNING[s];
       const openMidi = STANDARD_TUNING_MIDI[s];
@@ -253,12 +279,19 @@ export class GTFretboard extends HTMLElement {
         if (!intervalAt(rootPc, openPc, f)) continue;
         notesOnThisString.push(midi);
       }
-      for (const midi of notesOnThisString) {
-        await this._playAndWait(midi, delayMs);
-      }
+      sequence.push(...notesOnThisString);
       // The next string picks up strictly above the last note just played,
       // so the pattern keeps climbing instead of doubling back down.
       if (notesOnThisString.length) pitchFloor = notesOnThisString[notesOnThisString.length - 1] + 1;
+    }
+
+    const resolveDirection = () => (typeof direction === 'function' ? direction() : direction);
+    const toPlay = resolveDirection() === 'down' ? [...sequence].reverse()
+      : resolveDirection() === 'both' ? [...sequence, ...[...sequence].reverse().slice(1)]
+      : sequence;
+
+    for (const midi of toPlay) {
+      await this._playAndWait(midi, delayMs);
     }
   }
 
@@ -433,19 +466,24 @@ export class GTFretboard extends HTMLElement {
   // string in "O" mode -- just the bare white letter, no circle. A full
   // solid dot for "O" was too visually loud next to the actual note dots,
   // which need the circle to carry color-coded meaning; "O" doesn't.
-  _dotSvg({ x, y, label, color, midi, bare, pc }) {
+  _dotSvg({ x, y, label, color, midi, bare, pc, fret }) {
     // data-pc is only set for scale-view dots (see _renderDots) -- it's what
     // lets a click re-root the scale to that exact pitch, not just play it.
     // Chord-shape dots omit it: re-rooting off a chord tone isn't meaningful.
     const pcAttr = pc === undefined ? '' : ` data-pc="${pc}"`;
+    // data-fret lets pulseNote() (and anything checking "is this dot
+    // actually in the current cropped viewBox") look up this exact dot's
+    // fret without the caller having to track/pass it separately -- see
+    // _isFretInView().
+    const fretAttr = fret === undefined ? '' : ` data-fret="${fret}"`;
     if (bare) {
       return `
-        <g class="gt-dot gt-dot--bare" data-tone="${label}" data-midi="${midi}"${pcAttr}>
+        <g class="gt-dot gt-dot--bare" data-tone="${label}" data-midi="${midi}"${pcAttr}${fretAttr}>
           <text x="${x}" y="${y + 5}" text-anchor="middle" font-size="16" font-weight="700" fill="#ffffff">${label}</text>
         </g>`;
     }
     return `
-      <g class="gt-dot" data-tone="${label}" data-midi="${midi}"${pcAttr}>
+      <g class="gt-dot" data-tone="${label}" data-midi="${midi}"${pcAttr}${fretAttr}>
         <circle cx="${x}" cy="${y}" r="${DOT_RADIUS}" fill="${color}" stroke="#111827" stroke-width="1.5" />
         <text x="${x}" y="${y + 5}" text-anchor="middle" font-size="12" font-weight="700" fill="#111827">${label}</text>
       </g>`;
@@ -552,7 +590,7 @@ export class GTFretboard extends HTMLElement {
         const midi = STANDARD_TUNING_MIDI[s] + f;
         const pc = (openPc + f) % 12;
         const label = this._labelMode === 'note' ? pitchClassName(pc) : iv.degree;
-        out += this._dotSvg({ x, y, label, color, midi, bare: false, pc });
+        out += this._dotSvg({ x, y, label, color, midi, bare: false, pc, fret: f });
       }
     }
     return out;
@@ -571,7 +609,7 @@ export class GTFretboard extends HTMLElement {
       // Same rule as the scale view -- the neck always just says "O" for an
       // open string, regardless of what the small chord charts are showing.
       const displayLabel = f === 0 ? 'O' : label;
-      out += this._dotSvg({ x, y, label: displayLabel, color, midi, bare: f === 0 });
+      out += this._dotSvg({ x, y, label: displayLabel, color, midi, bare: f === 0, fret: f });
     });
     return out;
   }
