@@ -137,3 +137,13 @@
 .cs-diatonic-chip:focus-visible .cs-diatonic-chip__notes {
   color: #111827;
 }
+
+/* Issue #14 -- every chip that's the same root+quality as the chord you just
+   clicked, wherever it reappears across the other keys' rows. A ring in
+   --primary (rather than --quality-color, already used for the border/hover
+   state) keeps "same chord elsewhere" visually distinct from "this chip's
+   own quality" and from the formula table's hover tint. */
+.cs-diatonic-chip.is-cross-highlighted {
+  box-shadow: 0 0 0 3px var(--primary, #6366f1);
+  background: color-mix(in srgb, var(--primary, #6366f1) 20%, var(--bg-secondary, #1f2937));
+}
