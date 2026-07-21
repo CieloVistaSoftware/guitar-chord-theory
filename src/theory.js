@@ -138,3 +138,37 @@ export function harmonizeMajorScale(rootPc) {
     };
   });
 }
+
+/**
+ * A "mode" is just the same major scale's pitch collection, re-rooted to a
+ * different scale degree -- Dorian is C major's notes starting from D, not
+ * a different set of notes. MODE_NAMES[0] (Ionian) is the major scale
+ * itself; MODE_NAMES[i] is what you get treating scale degree i+1 as "the
+ * new 1".
+ */
+export const MODE_NAMES = ['Ionian', 'Dorian', 'Phrygian', 'Lydian', 'Mixolydian', 'Aeolian', 'Locrian'];
+
+const MODE_STEP_SEMITONES = MAJOR_SCALE_INTERVALS.map((iv) => iv.semitones); // [0,2,4,5,7,9,11]
+
+/**
+ * Everything a mode lesson needs for parentRootPc's major scale, re-rooted
+ * to scale degree modeIndex+1 (0 = Ionian/the scale's own root, 1 = Dorian
+ * on its 2nd degree, etc.):
+ *   - rootPc: the mode's own tonic (e.g. D, for Dorian on C major's 2nd degree)
+ *   - name: e.g. "D Dorian"
+ *   - degreeSemitones: this mode's own 7 scale-step offsets from its tonic,
+ *     in ascending order within one octave (e.g. Dorian: [0,2,3,5,7,9,10])
+ *     -- this is what actually distinguishes one mode from another, since
+ *     the underlying pitch collection never changes.
+ */
+export function modeInfo(parentRootPc, modeIndex) {
+  const rootPc = (parentRootPc + MODE_STEP_SEMITONES[modeIndex]) % 12;
+  const degreeSemitones = MODE_STEP_SEMITONES
+    .map((s, i) => {
+      const stepIdx = (modeIndex + i) % 7;
+      const octaveBump = modeIndex + i >= 7 ? 12 : 0;
+      return (MODE_STEP_SEMITONES[stepIdx] + octaveBump - MODE_STEP_SEMITONES[modeIndex] + 12) % 12;
+    })
+    .sort((a, b) => a - b);
+  return { rootPc, name: `${pitchClassName(rootPc)} ${MODE_NAMES[modeIndex]}`, degreeSemitones };
+}

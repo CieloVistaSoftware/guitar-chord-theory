@@ -535,7 +535,15 @@ export class GTFretboard extends HTMLElement {
     const above = new Set();
     const rootMidi = STANDARD_TUNING_MIDI[0] + this.rootFretOnSixthString();
     let pitchFloor = rootMidi;
-    let globalMaxShownMidi = -Infinity;
+    // Per-string, not global -- each string's own "shown" range ends at a
+    // different pitch (low strings top out lower than high strings), so
+    // "above" has to pick up right where THAT string's own pattern left
+    // off. A single global max-across-all-strings threshold left a dead
+    // zone on every string that didn't happen to be the single highest one
+    // (confirmed: the B string's own next few notes past its shown range
+    // were being skipped because they were still below the high-E string's
+    // global max, even though they were clearly "next" for the B string).
+    const maxShownMidiByString = new Array(6).fill(-Infinity);
 
     for (let s = 0; s < 6; s++) {
       const openPc = STANDARD_TUNING[s];
@@ -552,7 +560,7 @@ export class GTFretboard extends HTMLElement {
       for (const { f } of notesOnThisString) shown.add(`${s}-${f}`);
       if (notesOnThisString.length) {
         pitchFloor = notesOnThisString[notesOnThisString.length - 1].midi + 1;
-        globalMaxShownMidi = Math.max(globalMaxShownMidi, notesOnThisString[notesOnThisString.length - 1].midi);
+        maxShownMidiByString[s] = notesOnThisString[notesOnThisString.length - 1].midi;
         const minShownFret = notesOnThisString[0].f;
         for (let f = 0; f < minShownFret; f++) {
           if (intervalAt(rootPc, openPc, f)) below.add(`${s}-${f}`);
@@ -563,7 +571,7 @@ export class GTFretboard extends HTMLElement {
       const openPc = STANDARD_TUNING[s];
       const openMidi = STANDARD_TUNING_MIDI[s];
       for (let f = 0; f <= frets; f++) {
-        if (openMidi + f > globalMaxShownMidi && intervalAt(rootPc, openPc, f)) above.add(`${s}-${f}`);
+        if (openMidi + f > maxShownMidiByString[s] && intervalAt(rootPc, openPc, f)) above.add(`${s}-${f}`);
       }
     }
     // 'below'/'above' extend the shown pattern in that direction rather than

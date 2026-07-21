@@ -10,6 +10,8 @@
  * depend on the currently selected key.
  */
 import { buildChordShapeEventDetail, playChordAudio } from './chord-shape-builder.js';
+import { noteNameToPitchClass } from './theory.js';
+import { playModeDemo } from './mode-demo.js';
 
 function wait(ms) {
   return new Promise((resolve) => setTimeout(resolve, ms));
@@ -89,6 +91,33 @@ export function buildLessons({ diatonicChords }) {
         // NEXT pass (Replay, or the next Loop iteration) plays it.
         const nextInversion = { root: 'first', first: 'second', second: 'root' }[fretboard.getInversion()];
         fretboard.setInversion(nextInversion);
+      },
+    },
+    {
+      id: 'modes',
+      title: 'The 7 modes of the major scale',
+      blurb: 'Same notes, different starting point -- hear how each mode sounds.',
+      sectionId: 'modes-lesson',
+      // Full neck, not a fixed crop -- which frets are relevant shifts with
+      // both the current Key and which mode's tonic is picked, so there's
+      // no single range that always fits. Whichever notes get played are
+      // still made silent-if-off-screen safe by forcing Notes-shown to
+      // 'all' below, same rule as everywhere else (#19).
+      modalControls: ['tempo', 'mode'],
+      async run({ fretboard, showModal, getNoteDelayMs }) {
+        await showModal(document.getElementById('modes-lesson'));
+        fretboard.clearFocus();
+
+        const noteView = document.querySelector('.gt-note-view-select');
+        if (noteView) {
+          noteView.value = 'all';
+          noteView.dispatchEvent(new Event('change'));
+        }
+
+        const modeSelect = document.querySelector('.gt-mode-select');
+        const modeIndex = modeSelect ? Number(modeSelect.value) : 0;
+        const parentRootPc = noteNameToPitchClass(fretboard.rootNote);
+        await playModeDemo(fretboard, parentRootPc, modeIndex, getNoteDelayMs);
       },
     },
   ];

@@ -47,6 +47,40 @@
       font-weight: 600;
       cursor: pointer;
     }
+    /* Replaces a native <select> everywhere inside the fretboard card (see
+       src/select-stepper.js) -- a native select's dropdown auto-exits
+       browser fullscreen the instant it opens, which a prev/next stepper
+       made of plain buttons never triggers. */
+    .gt-stepper {
+      display: inline-flex;
+      align-items: center;
+      gap: 0.35rem;
+    }
+    .gt-stepper__btn {
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      min-width: 2rem;
+      min-height: 2rem;
+      border: 1px solid var(--border-color, #4b5563);
+      border-radius: 6px;
+      background: var(--bg-primary, #111827);
+      color: var(--text-primary, #f9fafb);
+      font-size: 1rem;
+      font-weight: 700;
+      line-height: 1;
+      cursor: pointer;
+    }
+    .gt-stepper__btn:hover {
+      background: var(--primary, #6366f1);
+    }
+    .gt-stepper__value {
+      min-width: 2.5em;
+      text-align: center;
+      font-size: 0.9rem;
+      font-weight: 600;
+      white-space: nowrap;
+    }
     /* A running lesson (src/lesson-player.js) scrolls to and glows whichever
        section it's currently narrating, so the reader's eye follows the
        lesson instead of having to hunt for what changed. */
@@ -148,11 +182,11 @@
              x-behavior="resizable" data-min-width="400" data-min-height="150" data-aspect-ratio>
       <header>
         <button type="button" class="gt-label-mode-btn" aria-pressed="false">🔢 Numbers</button>
-        <label class="gt-key-card">
+        <span class="gt-key-card">
           Key
           <select id="key-select"></select>
-        </label>
-        <label class="gt-key-card">
+        </span>
+        <span class="gt-key-card">
           Notes/string
           <select class="gt-lesson-modal__nps-select" autocomplete="off">
             <option value="2">2</option>
@@ -160,8 +194,8 @@
             <option value="4">4</option>
             <option value="5">5</option>
           </select>
-        </label>
-        <label class="gt-key-card">
+        </span>
+        <span class="gt-key-card">
           Notes shown
           <select class="gt-note-view-select" autocomplete="off">
             <option value="shown" selected>Only those shown</option>
@@ -169,15 +203,15 @@
             <option value="below">Only those below those shown</option>
             <option value="above">All notes up from the last one</option>
           </select>
-        </label>
-        <label class="gt-key-card gt-direction-card" hidden>
+        </span>
+        <span class="gt-key-card gt-direction-card" hidden>
           Direction
           <select class="gt-direction-select" autocomplete="off">
             <option value="up" selected>Up</option>
             <option value="down">Down</option>
             <option value="both">Both</option>
           </select>
-        </label>
+        </span>
         <button type="button" class="gt-lesson-card__play-btn" disabled>▶ Play</button>
         <button type="button" class="gt-info-btn" aria-label="What am I looking at?">
           <span aria-hidden="true">ⓘ</span>
@@ -219,6 +253,18 @@
             <input type="range" class="gt-lesson-modal__chord-delay-slider" min="500" max="3000" step="100" value="1100">
             <span class="gt-lesson-modal__chord-delay-value">1.10s/chord</span>
           </label>
+          <span class="gt-lesson-modal__tempo gt-lesson-modal__control" data-control="mode">
+            Mode
+            <select class="gt-mode-select" autocomplete="off">
+              <option value="0" selected>Ionian (the major scale)</option>
+              <option value="1">Dorian</option>
+              <option value="2">Phrygian</option>
+              <option value="3">Lydian</option>
+              <option value="4">Mixolydian</option>
+              <option value="5">Aeolian</option>
+              <option value="6">Locrian</option>
+            </select>
+          </span>
           <div class="gt-lesson-modal__actions">
             <button type="button" class="gt-lesson-modal__replay gt-lesson-dismiss">↻ Replay</button>
             <button type="button" class="gt-lesson-modal__loop gt-lesson-dismiss" aria-pressed="false">🔁 Loop</button>
@@ -261,6 +307,23 @@
     </div>
   </section>
 
+  <section id="modes-lesson">
+    <div class="gt-lesson-copy">
+      <h2>The 7 modes of the major scale</h2>
+      <p>
+        A mode isn't a different set of notes -- it's the exact same major scale, just starting (and resolving) on
+        a different one of its own 7 degrees instead of the 1st. <strong>C major</strong> starting on its 2nd degree
+        (D) is <strong>D Dorian</strong>; starting on its 6th degree (A) is <strong>A Aeolian</strong> -- same notes,
+        different "home."
+      </p>
+      <p>
+        Pick a mode below and it plays that same scale, one octave, starting and ending on that mode's own tonic --
+        listen for how the character changes even though every note still belongs to the current key.
+      </p>
+      <button type="button" class="gt-lesson-dismiss">✕ Dismiss</button>
+    </div>
+  </section>
+
   <script type="importmap">
   {
     "imports": {
@@ -280,19 +343,20 @@
   </script>
   <script type="module">
     import WB from 'wb-starter';
-    import './src/gt-fretboard.js?v=3';
-    import './src/gt-diatonic-chords.js?v=3';
-    import { NOTE_NAMES, pitchClassName, harmonizeMajorScale, noteNameToPitchClass } from './src/theory.js?v=3';
-    import { buildChordShapeEventDetail } from './src/chord-shape-builder.js?v=3';
+    import './src/gt-fretboard.js?v=4';
+    import './src/gt-diatonic-chords.js?v=4';
+    import { NOTE_NAMES, pitchClassName, harmonizeMajorScale, noteNameToPitchClass } from './src/theory.js?v=4';
+    import { buildChordShapeEventDetail } from './src/chord-shape-builder.js?v=4';
     import { themecontrol } from 'wb-starter/wb-viewmodels/themecontrol.js';
-    import { wireFullscreenToggle } from './src/fullscreen-toggle.js?v=3';
-    import { wireInfoTooltip } from './src/info-tooltip.js?v=3';
-    import { wirePinchZoom } from './src/pinch-zoom.js?v=3';
-    import { wireFretboardPan } from './src/fretboard-pan.js?v=3';
-    import { wireAutoRecenterOnResize } from './src/auto-recenter.js?v=3';
-    import { wireLabelModeToggle } from './src/label-mode-toggle.js?v=3';
-    import { createLessonPlayer } from './src/lesson-player.js?v=3';
-    import { buildLessons } from './src/lessons-data.js?v=3';
+    import { wireFullscreenToggle } from './src/fullscreen-toggle.js?v=4';
+    import { wireInfoTooltip } from './src/info-tooltip.js?v=4';
+    import { wirePinchZoom } from './src/pinch-zoom.js?v=4';
+    import { wireFretboardPan } from './src/fretboard-pan.js?v=4';
+    import { wireAutoRecenterOnResize } from './src/auto-recenter.js?v=4';
+    import { wireLabelModeToggle } from './src/label-mode-toggle.js?v=4';
+    import { createLessonPlayer } from './src/lesson-player.js?v=4';
+    import { buildLessons } from './src/lessons-data.js?v=4';
+    import { wireStepper } from './src/select-stepper.js?v=4';
 
     window.WB = WB;
     await WB.scan(document.body);
@@ -390,6 +454,17 @@
     });
     keySelect.value = 'C';
     keySelect.addEventListener('change', () => applyKey(keySelect.value));
+
+    // Native <select> dropdowns auto-exit browser fullscreen the instant
+    // they open (Chromium security behavior, not fixable via click
+    // handlers) -- every select living inside the fretboard card (the
+    // fullscreen target above) is replaced with a prev/next stepper. Wired
+    // last, after every select (key-select especially) already has its
+    // final initial value -- wiring it earlier left the Key stepper's
+    // label blank until the first click, since key-select's <option>s
+    // don't exist yet at that point in the script.
+    ['#key-select', '.gt-lesson-modal__nps-select', '.gt-note-view-select', '.gt-direction-select', '.gt-mode-select']
+      .forEach((sel) => wireStepper(document.querySelector(sel)));
   </script>
 </body>
 </html>
