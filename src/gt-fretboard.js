@@ -353,29 +353,22 @@ export class GTFretboard extends HTMLElement {
       return;
     }
 
-    // Same per-string algorithm as _scaleWalkPositions -- each string
-    // independently finds its OWN lowest fretted occurrence of the root
-    // (not a floor shared or inherited from any other string), then takes
-    // that plus the next notesPerString-1 ascending scale tones from
-    // there. Matches what's actually rendered/clickable.
+    // Same per-string algorithm as _scaleWalkPositions -- every string's
+    // search is constrained to the SAME fret (established by the low E
+    // string's own root position) and higher. Nothing below it is
+    // allowed, even if that string's own nearest root occurrence would
+    // otherwise fall earlier on the neck. Matches what's actually
+    // rendered/clickable.
+    const startFret = Math.max(1, this.rootFretOnSixthString());
     const sequence = [];
     for (let s = 0; s < 6; s++) {
       const openPc = STANDARD_TUNING[s];
       const openMidi = STANDARD_TUNING_MIDI[s];
       const npsForThisString = resolveNps();
-      // f starts at 1 -- an open string has no dot to flash, so it can't
-      // be this string's root starting point even if it happens to BE
-      // the root pitch class.
-      let stringRootFret = null;
-      for (let f = 1; f <= frets; f++) {
-        if ((openPc + f) % 12 === rootPc) { stringRootFret = f; break; }
-      }
       const notesOnThisString = [];
-      if (stringRootFret !== null) {
-        for (let f = stringRootFret; f <= frets && notesOnThisString.length < npsForThisString; f++) {
-          if (!intervalAt(rootPc, openPc, f)) continue;
-          notesOnThisString.push(openMidi + f);
-        }
+      for (let f = startFret; f <= frets && notesOnThisString.length < npsForThisString; f++) {
+        if (!intervalAt(rootPc, openPc, f)) continue;
+        notesOnThisString.push(openMidi + f);
       }
       sequence.push(...notesOnThisString);
     }
@@ -631,23 +624,19 @@ export class GTFretboard extends HTMLElement {
     const shown = new Set();
     const extended = new Set();
     const perString = new Array(6).fill(null); // { minFret, maxMidi } once a string has any shown notes
+    // Established once, by the low E string's own root position -- every
+    // other string's search is constrained to this SAME fret and higher.
+    // Nothing below it is allowed, even if that string's own nearest root
+    // occurrence would otherwise fall earlier on the neck.
+    const startFret = this.rootFretOnSixthString();
 
     for (let s = 0; s < 6; s++) {
       const openPc = STANDARD_TUNING[s];
       const openMidi = STANDARD_TUNING_MIDI[s];
-      // f starts at 1 -- scale view never marks open strings, so an open
-      // string can't be this string's "root" starting point even if it
-      // happens to BE the root pitch class.
-      let stringRootFret = null;
-      for (let f = 1; f <= frets; f++) {
-        if ((openPc + f) % 12 === rootPc) { stringRootFret = f; break; }
-      }
       const notesOnThisString = [];
-      if (stringRootFret !== null) {
-        for (let f = stringRootFret; f <= frets && notesOnThisString.length < notesPerString; f++) {
-          if (!intervalAt(rootPc, openPc, f)) continue;
-          notesOnThisString.push({ f, midi: openMidi + f });
-        }
+      for (let f = Math.max(1, startFret); f <= frets && notesOnThisString.length < notesPerString; f++) {
+        if (!intervalAt(rootPc, openPc, f)) continue;
+        notesOnThisString.push({ f, midi: openMidi + f });
       }
       for (const { f } of notesOnThisString) {
         shown.add(`${s}-${f}`);
@@ -715,10 +704,15 @@ export class GTFretboard extends HTMLElement {
     this.render();
   }
 
-  /** "Add Notes -" -- extends the scale view downward (toward the nut) the same way, same cap. */
-  addNotesBelow() {
-    const cap = this.fretCount;
-    this._extraBelowNotesPerString = Math.min(this._extraBelowNotesPerString + this._currentNotesPerString(), cap);
+  /**
+   * "Add Notes -" -- undoes the most recent "+": removes the last
+   * notesPerString-sized batch per string that + added, floored at 0 (not
+   * a separate "extend downward" direction -- there's no below-the-
+   * established-fret extension at all now, consistent with the box
+   * pattern's own "nothing below the starting fret" rule).
+   */
+  removeNotesAbove() {
+    this._extraAboveNotesPerString = Math.max(this._extraAboveNotesPerString - this._currentNotesPerString(), 0);
     this.render();
   }
 

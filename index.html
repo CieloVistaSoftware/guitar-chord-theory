@@ -210,8 +210,8 @@
         </span>
         <span class="gt-key-card gt-add-notes-card">
           Add Notes
-          <button type="button" class="gt-stepper__btn gt-add-notes-below" aria-label="Add notes below the root">−</button>
-          <button type="button" class="gt-stepper__value gt-add-notes-value" title="Click to reset to 0">+0 / −0</button>
+          <button type="button" class="gt-stepper__btn gt-add-notes-below" aria-label="Undo the last Add Notes +">−</button>
+          <button type="button" class="gt-stepper__value gt-add-notes-value" title="Click to reset to 0">+0</button>
           <button type="button" class="gt-stepper__btn gt-add-notes-above" aria-label="Add notes above">+</button>
         </span>
         <span class="gt-key-card gt-direction-card" hidden>
@@ -496,21 +496,21 @@
       .forEach((sel) => wireStepper(document.querySelector(sel)));
 
     // Add Notes (+/-) isn't a cycling select like the others -- it's an
-    // unbounded accumulator (each click extends the view further, doesn't
-    // just pick from a fixed list) -- see gt-fretboard.js#addNotesAbove/
-    // addNotesBelow.
+    // unbounded accumulator (each click of + extends the view further
+    // upward) with - as its undo, not a separate direction -- see
+    // gt-fretboard.js#addNotesAbove/removeNotesAbove.
     {
       const valueEl = document.querySelector('.gt-add-notes-value');
       const syncAddNotesValue = () => {
         if (!valueEl) return;
-        valueEl.textContent = `+${fretboard.getExtraNotesAbove() * 6} / −${fretboard.getExtraNotesBelow() * 6}`;
+        valueEl.textContent = `+${fretboard.getExtraNotesAbove() * 6}`;
       };
       document.querySelector('.gt-add-notes-above')?.addEventListener('click', () => {
         fretboard.addNotesAbove();
         syncAddNotesValue();
       });
       document.querySelector('.gt-add-notes-below')?.addEventListener('click', () => {
-        fretboard.addNotesBelow();
+        fretboard.removeNotesAbove();
         syncAddNotesValue();
       });
       // Changing Key resets the fretboard's own extra-above/below counters

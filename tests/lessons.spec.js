@@ -10,8 +10,14 @@ test.beforeEach(async ({ page }) => {
 test('lessons dropdown is populated; picking a lesson arms Play but does not autoplay', async ({ page }) => {
   const select = page.locator('.gt-lesson-select');
   await expect(select).toBeVisible();
-  const optionCount = await select.locator('option').count();
-  expect(optionCount).toBeGreaterThan(1);
+  // toBeVisible() only confirms the <select> element itself is rendered,
+  // not that the page's async module script has finished calling
+  // renderOptions() to populate it -- .count() is a one-shot read with no
+  // retry, so poll instead of assuming it's already populated the instant
+  // the element exists (this raced and produced a 0-count flake under load
+  // from the rest of the suite running first -- same root cause as the
+  // smoke.spec.js fix).
+  await expect.poll(() => select.locator('option').count()).toBeGreaterThan(1);
 
   const playBtn = page.locator('.gt-lesson-card__play-btn');
   await expect(playBtn).toBeDisabled();
