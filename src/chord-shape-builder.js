@@ -102,13 +102,17 @@ export function buildChordShapeEventDetail(c, showNoteNames) {
  * `noteDuration`, if given, overrides how long each note rings for (see
  * playChordMidi) -- e.g. a single long drone strum meant to ring under an
  * entire demo instead of the usual short strum-and-decay.
+ *
+ * `gainScale` (see playChordMidi) scales the chord's own volume down
+ * relative to its normal strum -- e.g. a drone meant to sit quietly under
+ * melody notes played at their own default volume.
  */
-export function playChordAudio(c, inversion = 'root', onNote, strumSeconds = 0.06, noteDuration) {
+export function playChordAudio(c, inversion = 'root', onNote, strumSeconds = 0.06, noteDuration, gainScale) {
   const shape = getChordShape(c, inversion);
   if (!shape) return;
   const midiNotes = shape
     .map((fret, s) => (fret === null ? null : STANDARD_TUNING_MIDI[s] + fret))
     .filter((m) => m !== null)
     .sort((a, b) => a - b);
-  playChordMidi(midiNotes, strumSeconds, onNote, noteDuration);
+  playChordMidi(midiNotes, strumSeconds, onNote, noteDuration, gainScale);
 }
