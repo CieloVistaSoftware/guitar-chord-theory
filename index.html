@@ -486,13 +486,12 @@
 
     // Native <select> dropdowns auto-exit browser fullscreen the instant
     // they open (Chromium security behavior, not fixable via click
-    // handlers) -- every select living inside the fretboard card (the
-    // fullscreen target above) is replaced with a prev/next stepper. Wired
-    // last, after every select (key-select especially) already has its
-    // final initial value -- wiring it earlier left the Key stepper's
-    // label blank until the first click, since key-select's <option>s
-    // don't exist yet at that point in the script.
-    ['#key-select', '.gt-lesson-modal__nps-select', '.gt-direction-select', '.gt-mode-select', '.gt-time-signature-select']
+    // handlers) -- every OTHER select living inside the fretboard card
+    // (the fullscreen target above) is replaced with a prev/next stepper.
+    // Key stays a plain native <select> -- reverted back on request, so
+    // it will re-trigger the fullscreen-exit behavior if used while
+    // fullscreen, same as before #23's fix.
+    ['.gt-lesson-modal__nps-select', '.gt-direction-select', '.gt-mode-select', '.gt-time-signature-select']
       .forEach((sel) => wireStepper(document.querySelector(sel)));
 
     // Add Notes (+/-) isn't a cycling select like the others -- it's an
