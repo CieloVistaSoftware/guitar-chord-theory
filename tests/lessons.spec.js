@@ -140,12 +140,12 @@ test('changing Mode while the Modes lesson is active re-triggers the demo', asyn
   await expect.poll(() => page.locator('.gt-dot').count()).toBe(18);
 });
 
-// The Modes lesson strums that mode's own diatonic triad (harmonizeMajorScale
-// in the current key, at the mode's own scale degree -- Ionian=I major,
-// Dorian=ii minor, Locrian=vii diminished, etc) alongside every melody
-// note, so the ear hears each scale tone against that mode's own harmonic
-// "home" instead of in isolation.
-test('the Modes lesson strums that mode\'s own chord alongside each melody note', async ({ page }) => {
+// The Modes lesson strums that mode's own diatonic triad ONCE, up front
+// (harmonizeMajorScale in the current key, at the mode's own scale degree
+// -- Ionian=I major, Dorian=ii minor, Locrian=vii diminished, etc), and
+// lets it ring/fade out underneath the whole scale-walk demo -- not a
+// repeated re-strum on every melody note.
+test('the Modes lesson strums that mode\'s own chord once, not on every note', async ({ page }) => {
   await page.evaluate(() => {
     window.__strums = [];
     document.addEventListener('gt:mode-chord-strummed', (e) => window.__strums.push(e.detail.chordName));
@@ -154,9 +154,22 @@ test('the Modes lesson strums that mode\'s own chord alongside each melody note'
   await page.locator('.gt-lesson-select').selectOption('modes');
   await page.locator('.gt-lesson-modal__play').click();
 
-  // Ionian (the default mode) on key C is the I chord -- C major.
+  // Ionian (the default mode) on key C is the I chord -- C major -- struck
+  // once (a handful of notes for one guitar-shape strum, not dozens). The
+  // strum's own notes are staggered (a soft strum, not all-at-once, 0.1s
+  // apart) -- give it a full second to finish landing before reading the
+  // baseline count, or a poll caught mid-strum would just record an
+  // arbitrary partial count.
   await expect.poll(() => page.evaluate(() => window.__strums.length)).toBeGreaterThan(0);
+  await page.waitForTimeout(1000);
+  const strumCountAtStart = await page.evaluate(() => window.__strums.length);
+  expect(strumCountAtStart).toBeLessThanOrEqual(6);
+
+  // Wait for the whole demo to finish -- the strum count must not have
+  // grown, proving it rang once instead of being re-struck per note.
+  await expect(page.locator('.gt-lesson-select')).toBeEnabled({ timeout: 15000 });
   const chordNames = await page.evaluate(() => window.__strums);
+  expect(chordNames.length).toBe(strumCountAtStart);
   expect(chordNames.every((name) => name === 'C')).toBe(true);
 });
 

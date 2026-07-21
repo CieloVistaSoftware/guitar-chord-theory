@@ -98,13 +98,17 @@ export function buildChordShapeEventDetail(c, showNoteNames) {
  * Chords lesson / clicking a chord card directly) -- pass a larger value
  * for ear training, so each note in the chord rings out distinctly instead
  * of blurring together in under a third of a second.
+ *
+ * `noteDuration`, if given, overrides how long each note rings for (see
+ * playChordMidi) -- e.g. a single long drone strum meant to ring under an
+ * entire demo instead of the usual short strum-and-decay.
  */
-export function playChordAudio(c, inversion = 'root', onNote, strumSeconds = 0.06) {
+export function playChordAudio(c, inversion = 'root', onNote, strumSeconds = 0.06, noteDuration) {
   const shape = getChordShape(c, inversion);
   if (!shape) return;
   const midiNotes = shape
     .map((fret, s) => (fret === null ? null : STANDARD_TUNING_MIDI[s] + fret))
     .filter((m) => m !== null)
     .sort((a, b) => a - b);
-  playChordMidi(midiNotes, strumSeconds, onNote);
+  playChordMidi(midiNotes, strumSeconds, onNote, noteDuration);
 }

@@ -127,12 +127,17 @@ export function playMidi(midi, duration = 1.4, peakGain = 0.3, brightness = 3200
  * acoustic guitar left to sustain -- both a long duration AND a slower
  * decay rate (0.9985), since a long duration alone just pads the tail with
  * silence once the tone has already died out.
+ *
+ * `noteDuration`, if given, overrides the default 3.5s/4.5s ring length for
+ * every note -- e.g. the Modes lesson strums once at a much longer
+ * duration so the chord rings underneath (and slowly fades out across)
+ * the whole scale-walk demo, instead of the usual short strum-and-decay.
  */
-export function playChordMidi(midiNotes, strumSeconds = 0.06, onNote) {
+export function playChordMidi(midiNotes, strumSeconds = 0.06, onNote, noteDuration) {
   midiNotes.forEach((midi, i) => {
     const isBass = i === 0;
     setTimeout(() => {
-      playMidi(midi, isBass ? 4.5 : 3.5, isBass ? 0.35 : 0.22, isBass ? 2200 : 3400, 0.9985);
+      playMidi(midi, noteDuration ?? (isBass ? 4.5 : 3.5), isBass ? 0.35 : 0.22, isBass ? 2200 : 3400, 0.9985);
       onNote?.(midi, i);
     }, i * strumSeconds * 1000);
   });

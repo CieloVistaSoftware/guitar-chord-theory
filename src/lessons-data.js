@@ -120,15 +120,15 @@ export function buildLessons({ diatonicChords }) {
         // The mode's own tonic triad -- degree modeIndex+1's diatonic chord
         // in the CURRENT key (harmonizeMajorScale's array is already
         // indexed exactly this way: Ionian=I major, Dorian=ii minor,
-        // Locrian=vii diminished, etc). Strummed alongside every melody
-        // note so the ear hears each scale tone against that mode's own
-        // harmonic "home," not just in isolation.
+        // Locrian=vii diminished, etc). Struck once, up front, and left to
+        // ring/slowly fade out underneath the whole scale-walk demo -- a
+        // sustained harmonic "home" the ear can measure every melody note
+        // against, not a repeated re-strum on every note.
         const modeChord = harmonizeMajorScale(parentRootPc)[modeIndex];
-        await fretboard.playScaleDemo(getNoteDelayMs, getNotesPerString, getDirection, getTimeSignature, () => {
-          playChordAudio(modeChord, 'root', (midi) => {
-            document.dispatchEvent(new CustomEvent('gt:mode-chord-strummed', { bubbles: true, detail: { midi, chordName: modeChord.chordName } }));
-          });
-        });
+        playChordAudio(modeChord, 'root', (midi) => {
+          document.dispatchEvent(new CustomEvent('gt:mode-chord-strummed', { bubbles: true, detail: { midi, chordName: modeChord.chordName } }));
+        }, 0.1, 9);
+        await fretboard.playScaleDemo(getNoteDelayMs, getNotesPerString, getDirection, getTimeSignature);
       },
     },
   ];
