@@ -181,7 +181,7 @@ gt-fretboard {
 .gt-lesson-modal {
   width: 100%;
   overflow: visible;
-  margin-bottom: 0.75rem;
+  margin-bottom: 1rem; /* the modal's own action buttons must sit exactly 1rem above the fretboard's top edge */
   background: var(--bg-secondary, #1f2937);
   border: 2px solid var(--primary, #6366f1);
   border-radius: var(--radius-md, 8px);
@@ -225,6 +225,36 @@ gt-fretboard {
   padding: 0.15rem 0.5rem;
   font-size: 0.75rem;
   cursor: pointer;
+}
+
+/* Numbers/Key/Notes-per-string/Add Notes/Direction/Play/info/focus/
+   Fullscreen -- always visible (not just while a lesson narration shows),
+   since these drive the fretboard itself. Tightened gap and per-control
+   padding vs. their old standalone-<header> spacing, now that they all
+   share one row inside the modal. */
+.gt-lesson-modal__header-controls {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 0.4rem;
+  margin-bottom: 0.75rem;
+}
+
+.gt-lesson-modal__header-controls .gt-key-card {
+  gap: 0.35rem;
+  padding: 0.3rem 0.6rem;
+  font-size: 0.8rem;
+}
+
+.gt-lesson-modal__header-controls .gt-stepper__btn {
+  min-width: 1.6rem;
+  min-height: 1.6rem;
+  font-size: 0.85rem;
+}
+
+.gt-lesson-modal__header-controls .gt-stepper__value {
+  min-width: 2em;
+  font-size: 0.8rem;
 }
 
 /* Collapsed: hides only the narration text, leaving the drag/collapse row

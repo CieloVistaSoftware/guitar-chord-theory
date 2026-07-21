@@ -55,14 +55,17 @@ export class GTFretboard extends HTMLElement {
     // once a user asks for the whole neck, this stays off until a lesson
     // explicitly focuses it again.
     this._autoCenterEnabled = true;
-    // "Add Notes" (+/-), the header control next to Notes/string -- each
-    // click of + extends the scale view upward by notesPerString more
-    // occurrences per string (e.g. +18 total at the nps=3 default: 3 more
-    // per string x 6 strings); each click of - does the same extending
-    // downward, toward the nut. Both accumulate across repeated clicks and
-    // reset whenever the key/root changes (see attributeChangedCallback).
-    this._extraAboveNotesPerString = 0;
-    this._extraBelowNotesPerString = 0;
+    // "Add Notes" (+/-), the header control next to Notes/string -- a
+    // single signed level, not two independent directions: + increments
+    // it (extends the scale view upward by one more notesPerString-sized
+    // batch per string per level); - decrements it, going negative once
+    // it's already at 0 (extends downward, toward the nut, the same way
+    // but in the opposite direction). Resets to 0 whenever the key/root
+    // changes (see attributeChangedCallback).
+    this._addNotesLevel = 0;
+    // Temporary override used by showEveryOccurrence() (e.g. the Modes
+    // lesson) -- see that method's own comment.
+    this._forceShowEverything = false;
   }
 
   connectedCallback() {
@@ -650,8 +653,13 @@ export class GTFretboard extends HTMLElement {
       }
     }
 
-    const extraAbove = this._extraAboveNotesPerString || 0;
-    const extraBelow = this._extraBelowNotesPerString || 0;
+    // A positive level extends above the base pattern; negative extends
+    // below (toward the nut) the same way, in the opposite direction.
+    // Only one direction is ever active at once -- the level is signed,
+    // not two independent counters. showEveryOccurrence() overrides both
+    // directions at once regardless of the level (see its own comment).
+    const extraAbove = this._forceShowEverything ? frets : Math.max(this._addNotesLevel, 0) * notesPerString;
+    const extraBelow = this._forceShowEverything ? frets : Math.max(-this._addNotesLevel, 0) * notesPerString;
     for (let s = 0; s < 6; s++) {
       const info = perString[s];
       if (!info) continue;
@@ -679,44 +687,56 @@ export class GTFretboard extends HTMLElement {
     return { shown, extended };
   }
 
-  /** How many more notes-per-string worth "Add Notes +" has extended the view above the base pattern (0 = none). */
+  /** How many more notes-per-string worth "Add Notes +" has extended the view above the base pattern (0 if the level is currently <= 0). */
   getExtraNotesAbove() {
-    return this._extraAboveNotesPerString || 0;
+    return Math.max(this._addNotesLevel, 0) * this._currentNotesPerString();
   }
 
-  /** How many more notes-per-string worth "Add Notes -" has extended the view below the base pattern (0 = none). */
+  /** How many more notes-per-string worth "Add Notes -" has extended the view below the base pattern (0 if the level is currently >= 0). */
   getExtraNotesBelow() {
-    return this._extraBelowNotesPerString || 0;
+    return Math.max(-this._addNotesLevel, 0) * this._currentNotesPerString();
+  }
+
+  /** The raw signed Add Notes level (positive = extended above, negative = extended below, 0 = base pattern only). */
+  getAddNotesLevel() {
+    return this._addNotesLevel;
+  }
+
+  // Symmetric cap on the level so repeated clicking can't run the
+  // displayed count up past the point where any more dots could actually
+  // appear (every occurrence up to fret 22 in that direction is already
+  // showing well before this).
+  _maxAddNotesLevel() {
+    return Math.max(1, Math.ceil(this.fretCount / this._currentNotesPerString()));
   }
 
   /**
-   * "Add Notes +" -- extends the scale view upward by one more
-   * notesPerString-sized batch per string, across all six strings.
-   * Accumulates across repeated clicks, capped at fretCount (there is
-   * never a reason to ask for more extra than the whole neck's fret
-   * count -- past that the displayed "+N" number would just keep
-   * climbing meaninglessly once every occurrence up to fret 22 is
-   * already showing).
+   * "Add Notes +" -- increments the signed level by one, extending the
+   * scale view upward by one more notesPerString-sized batch per string
+   * (across all six strings) per level above 0. If the level is currently
+   * negative (extended below), this undoes one of those below-batches
+   * first, same as - undoes an above-batch.
    */
   addNotesAbove() {
-    const cap = this.fretCount;
-    this._extraAboveNotesPerString = Math.min(this._extraAboveNotesPerString + this._currentNotesPerString(), cap);
+    this._forceShowEverything = false; // manual interaction takes over from showEveryOccurrence()
+    this._addNotesLevel = Math.min(this._addNotesLevel + 1, this._maxAddNotesLevel());
     this.render();
   }
 
   /**
-   * "Add Notes -" -- undoes the most recent "+": removes the last
-   * notesPerString-sized batch per string that + added, floored at 0 (not
-   * a separate "extend downward" direction -- there's no below-the-
-   * established-fret extension at all now, consistent with the box
-   * pattern's own "nothing below the starting fret" rule).
+   * "Add Notes -" -- decrements the signed level by one. While the level
+   * is still positive (something above the base pattern to undo), this
+   * undoes one above-batch; once it reaches 0, further clicks go negative
+   * and extend the view downward (toward the nut) instead, the same way
+   * + extends it upward.
    */
   removeNotesAbove() {
-    this._extraAboveNotesPerString = Math.max(this._extraAboveNotesPerString - this._currentNotesPerString(), 0);
+    this._forceShowEverything = false; // manual interaction takes over from showEveryOccurrence()
+    this._addNotesLevel = Math.max(this._addNotesLevel - 1, -this._maxAddNotesLevel());
     this.render();
   }
 
-  /** Resets "Add Notes" back to the base notesPerString pattern (0/0) -- the explicit reset a user can trigger directly (index.html's clickable Add Notes value label), same effect as the automatic reset a Key change already triggers. */
+  /** Resets "Add Notes" back to the base notesPerString pattern (level 0) -- the explicit reset a user can trigger directly (index.html's clickable Add Notes value label), same effect as the automatic reset a Key change already triggers. */
   resetAddNotes() {
     this._resetAddNotes();
     this.render();
@@ -728,21 +748,20 @@ export class GTFretboard extends HTMLElement {
    * Notes/string or Add Notes state. Used by lessons whose notes may fall
    * entirely outside the current pattern -- e.g. the Modes lesson plays a
    * different tonic's octave, which the base notesPerString-capped walk
-   * has no reason to already include. Not persisted as a separate mode;
-   * it's implemented as a big Add Notes extension in both directions, so
-   * it composes with everything else (Key change, "Show full neck") the
-   * normal way instead of needing its own special-cased state.
+   * has no reason to already include. Implemented as a temporary direct
+   * override of the extension amounts (bypassing the signed level
+   * entirely, since both directions need to be maxed out at once here),
+   * restored to normal on the next Add Notes interaction or Key change.
    */
   showEveryOccurrence() {
-    this._extraAboveNotesPerString = this.fretCount;
-    this._extraBelowNotesPerString = this.fretCount;
+    this._forceShowEverything = true;
     this.render();
   }
 
-  /** Resets both Add Notes extensions back to 0 -- called whenever the root/key changes, since the whole pattern re-bases and a carried-over extension from the old key wouldn't mean anything. */
+  /** Resets the Add Notes level back to 0 -- called whenever the root/key changes, since the whole pattern re-bases and a carried-over extension from the old key wouldn't mean anything. */
   _resetAddNotes() {
-    this._extraAboveNotesPerString = 0;
-    this._extraBelowNotesPerString = 0;
+    this._addNotesLevel = 0;
+    this._forceShowEverything = false;
   }
 
   // Never shows (or allows clicking/playing) more than notesPerString dots

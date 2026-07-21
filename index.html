@@ -193,64 +193,64 @@
     </div>
     <wb-card class="gt-fretboard-card" data-clickable="false" data-hoverable="false"
              x-behavior="resizable" data-min-width="400" data-min-height="150" data-aspect-ratio>
-      <header>
-        <button type="button" class="gt-label-mode-btn" aria-pressed="false">🔢 Numbers</button>
-        <span class="gt-key-card">
-          Key
-          <select id="key-select"></select>
-        </span>
-        <span class="gt-key-card">
-          Notes/string
-          <select class="gt-lesson-modal__nps-select" autocomplete="off">
-            <option value="2">2</option>
-            <option value="3" selected>3</option>
-            <option value="4">4</option>
-            <option value="5">5</option>
-          </select>
-        </span>
-        <span class="gt-key-card gt-add-notes-card">
-          Add Notes
-          <button type="button" class="gt-stepper__btn gt-add-notes-below" aria-label="Undo the last Add Notes +">−</button>
-          <button type="button" class="gt-stepper__value gt-add-notes-value" title="Click to reset to 0">+0</button>
-          <button type="button" class="gt-stepper__btn gt-add-notes-above" aria-label="Add notes above">+</button>
-        </span>
-        <span class="gt-key-card gt-direction-card" hidden>
-          Direction
-          <select class="gt-direction-select" autocomplete="off">
-            <option value="up" selected>Up</option>
-            <option value="down">Down</option>
-            <option value="both">Both</option>
-          </select>
-        </span>
-        <button type="button" class="gt-lesson-card__play-btn" disabled>▶ Play</button>
-        <button type="button" class="gt-info-btn" aria-label="What am I looking at?">
-          <span aria-hidden="true">ⓘ</span>
-          <span class="gt-info-tooltip">
-            Every colored dot is a note in the current key's major scale. The number is its
-            <strong>scale degree</strong> (1 through 7); the color is the same for that degree in every key --
-            <strong style="color:#ef4444">1 red</strong>, <strong style="color:#f59e0b">2 orange</strong>,
-            <strong style="color:#eab308">3 yellow</strong>, <strong style="color:#22c55e">4 green</strong>,
-            <strong style="color:#06b6d4">5 cyan</strong>, <strong style="color:#6366f1">6 indigo</strong>,
-            <strong style="color:#a855f7">7 purple</strong>.
-            <br><br>
-            Click any dot to hear that note. Click the <strong>Key</strong> selector, or click a note directly on
-            the neck, to change which note is "1." Click a chord card below and its shape takes over the neck --
-            <strong>← back to the full scale</strong> returns to this view.
-          </span>
-        </button>
-        <span id="focus-indicator" class="gt-focus-indicator" hidden>
-          Zoomed: <span id="focus-range-text"></span>
-          <button type="button" id="show-full-neck-btn" class="gt-mode-btn gt-mode-btn--back">⤢ Show full neck</button>
-        </span>
-        <button type="button" class="gt-fullscreen-btn" aria-pressed="false">⛶ Fullscreen</button>
-      </header>
       <main>
-        <div class="gt-lesson-modal" hidden
+        <div class="gt-lesson-modal" id="fretboardcontroller"
              x-behavior="draggable resizable" data-handle=".gt-lesson-modal__handle" data-bounds="parent"
              data-min-width="220" data-min-height="140">
           <div class="gt-lesson-modal__handle-row">
-            <span class="gt-lesson-modal__handle" aria-hidden="true">⠿⠿ drag</span>
+            <span class="gt-lesson-modal__handle" aria-hidden="true">⠿⠿ fretboardcontroller</span>
             <button type="button" class="gt-lesson-modal__collapse-btn" aria-pressed="false">▲ Collapse</button>
+          </div>
+          <div class="gt-lesson-modal__header-controls">
+            <button type="button" class="gt-label-mode-btn" aria-pressed="false">🔢 Numbers</button>
+            <span class="gt-key-card">
+              Key
+              <select id="key-select"></select>
+            </span>
+            <span class="gt-key-card">
+              Notes/string
+              <select class="gt-lesson-modal__nps-select" autocomplete="off">
+                <option value="2">2</option>
+                <option value="3" selected>3</option>
+                <option value="4">4</option>
+                <option value="5">5</option>
+              </select>
+            </span>
+            <span class="gt-key-card gt-add-notes-card">
+              Add Notes
+              <button type="button" class="gt-stepper__btn gt-add-notes-below" aria-label="Undo the last Add Notes +">−</button>
+              <button type="button" class="gt-stepper__value gt-add-notes-value" title="Click to reset to 0">+0</button>
+              <button type="button" class="gt-stepper__btn gt-add-notes-above" aria-label="Add notes above">+</button>
+            </span>
+            <span class="gt-key-card gt-direction-card" hidden>
+              Direction
+              <select class="gt-direction-select" autocomplete="off">
+                <option value="up" selected>Up</option>
+                <option value="down">Down</option>
+                <option value="both">Both</option>
+              </select>
+            </span>
+            <button type="button" class="gt-lesson-card__play-btn" disabled>▶ Play</button>
+            <button type="button" class="gt-info-btn" aria-label="What am I looking at?">
+              <span aria-hidden="true">ⓘ</span>
+              <span class="gt-info-tooltip">
+                Every colored dot is a note in the current key's major scale. The number is its
+                <strong>scale degree</strong> (1 through 7); the color is the same for that degree in every key --
+                <strong style="color:#ef4444">1 red</strong>, <strong style="color:#f59e0b">2 orange</strong>,
+                <strong style="color:#eab308">3 yellow</strong>, <strong style="color:#22c55e">4 green</strong>,
+                <strong style="color:#06b6d4">5 cyan</strong>, <strong style="color:#6366f1">6 indigo</strong>,
+                <strong style="color:#a855f7">7 purple</strong>.
+                <br><br>
+                Click any dot to hear that note. Click the <strong>Key</strong> selector, or click a note directly on
+                the neck, to change which note is "1." Click a chord card below and its shape takes over the neck --
+                <strong>← back to the full scale</strong> returns to this view.
+              </span>
+            </button>
+            <span id="focus-indicator" class="gt-focus-indicator" hidden>
+              Zoomed: <span id="focus-range-text"></span>
+              <button type="button" id="show-full-neck-btn" class="gt-mode-btn gt-mode-btn--back">⤢ Show full neck</button>
+            </span>
+            <button type="button" class="gt-fullscreen-btn" aria-pressed="false">⛶ Fullscreen</button>
           </div>
           <div class="gt-lesson-modal__content"></div>
           <label class="gt-lesson-modal__tempo gt-lesson-modal__control" data-control="tempo">
@@ -369,20 +369,20 @@
   </script>
   <script type="module">
     import WB from 'wb-starter';
-    import './src/gt-fretboard.js?v=5';
-    import './src/gt-diatonic-chords.js?v=5';
-    import { NOTE_NAMES, pitchClassName, harmonizeMajorScale, noteNameToPitchClass } from './src/theory.js?v=5';
-    import { buildChordShapeEventDetail } from './src/chord-shape-builder.js?v=5';
+    import './src/gt-fretboard.js?v=6';
+    import './src/gt-diatonic-chords.js?v=6';
+    import { NOTE_NAMES, pitchClassName, harmonizeMajorScale, noteNameToPitchClass } from './src/theory.js?v=6';
+    import { buildChordShapeEventDetail } from './src/chord-shape-builder.js?v=6';
     import { themecontrol } from 'wb-starter/wb-viewmodels/themecontrol.js';
-    import { wireFullscreenToggle } from './src/fullscreen-toggle.js?v=5';
-    import { wireInfoTooltip } from './src/info-tooltip.js?v=5';
-    import { wirePinchZoom } from './src/pinch-zoom.js?v=5';
-    import { wireFretboardPan } from './src/fretboard-pan.js?v=5';
-    import { wireAutoRecenterOnResize } from './src/auto-recenter.js?v=5';
-    import { wireLabelModeToggle } from './src/label-mode-toggle.js?v=5';
-    import { createLessonPlayer } from './src/lesson-player.js?v=5';
-    import { buildLessons } from './src/lessons-data.js?v=5';
-    import { wireStepper } from './src/select-stepper.js?v=5';
+    import { wireFullscreenToggle } from './src/fullscreen-toggle.js?v=6';
+    import { wireInfoTooltip } from './src/info-tooltip.js?v=6';
+    import { wirePinchZoom } from './src/pinch-zoom.js?v=6';
+    import { wireFretboardPan } from './src/fretboard-pan.js?v=6';
+    import { wireAutoRecenterOnResize } from './src/auto-recenter.js?v=6';
+    import { wireLabelModeToggle } from './src/label-mode-toggle.js?v=6';
+    import { createLessonPlayer } from './src/lesson-player.js?v=6';
+    import { buildLessons } from './src/lessons-data.js?v=6';
+    import { wireStepper } from './src/select-stepper.js?v=6';
 
     window.WB = WB;
     await WB.scan(document.body);
@@ -495,14 +495,17 @@
       .forEach((sel) => wireStepper(document.querySelector(sel)));
 
     // Add Notes (+/-) isn't a cycling select like the others -- it's an
-    // unbounded accumulator (each click of + extends the view further
-    // upward) with - as its undo, not a separate direction -- see
+    // unbounded accumulator with a single signed level -- + increments
+    // (extends above), - decrements (undoes an above-batch, then goes
+    // negative and extends below once it passes 0) -- see
     // gt-fretboard.js#addNotesAbove/removeNotesAbove.
     {
       const valueEl = document.querySelector('.gt-add-notes-value');
       const syncAddNotesValue = () => {
         if (!valueEl) return;
-        valueEl.textContent = `+${fretboard.getExtraNotesAbove() * 6}`;
+        const above = fretboard.getExtraNotesAbove() * 6;
+        const below = fretboard.getExtraNotesBelow() * 6;
+        valueEl.textContent = above > 0 ? `+${above}` : below > 0 ? `−${below}` : '0';
       };
       document.querySelector('.gt-add-notes-above')?.addEventListener('click', () => {
         fretboard.addNotesAbove();

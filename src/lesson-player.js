@@ -76,11 +76,14 @@ function wireDismissButtons() {
   });
 }
 
-// Shows a lesson's narration as a floating panel over the fretboard, cloned
-// from that lesson's (hidden) source section, instead of appearing inline
-// in the page -- so what you're reading and what the fretboard is doing
-// are never in two different places on the screen. Stays up until the
-// modal's own dismiss button is clicked (wired once, in wireModal()).
+// Populates a lesson's narration into the permanent #fretboardcontroller
+// panel's content area, cloned from that lesson's (hidden) source section
+// -- so what you're reading and what the fretboard is doing are never in
+// two different places on the screen. The panel itself is always visible
+// (it also carries Key/Notes-per-string/Play/Fullscreen/etc, which have to
+// stay reachable even when no lesson is running); only the narration text
+// comes and goes, via the collapse/expand toggle -- see wireModal()'s
+// Dismiss handler and the collapsed-by-default reset below.
 async function showModal(section, { scrollToFretboard = true } = {}) {
   const modal = document.querySelector('.gt-lesson-modal');
   const content = modal?.querySelector('.gt-lesson-modal__content');
@@ -100,14 +103,30 @@ async function showModal(section, { scrollToFretboard = true } = {}) {
   const clone = copy.cloneNode(true);
   clone.querySelector('.gt-lesson-dismiss')?.remove(); // the modal has its own
   content.replaceChildren(...clone.childNodes);
-  modal.hidden = false;
+  // Narration text starts collapsed (hidden) every time a lesson shows --
+  // the user clicks the toggle to reveal it, rather than it appearing by
+  // default and needing to be dismissed.
+  const collapseBtn = modal.querySelector('.gt-lesson-modal__collapse-btn');
+  modal.classList.add('is-collapsed');
+  if (collapseBtn) {
+    collapseBtn.setAttribute('aria-pressed', 'true');
+    collapseBtn.textContent = '▼ Expand';
+  }
   speakNarration(content);
 }
 
 function wireModal({ onReplay, onToggleLoop, onDismiss } = {}) {
   const modal = document.querySelector('.gt-lesson-modal');
   modal?.querySelector('.gt-lesson-modal__dismiss')?.addEventListener('click', () => {
-    modal.hidden = true;
+    // The panel itself is always visible (it carries the header controls),
+    // so Dismiss can no longer hide it -- just collapse the narration back
+    // down to the same collapsed-by-default state showModal() starts in.
+    const collapseBtn = modal.querySelector('.gt-lesson-modal__collapse-btn');
+    modal.classList.add('is-collapsed');
+    if (collapseBtn) {
+      collapseBtn.setAttribute('aria-pressed', 'true');
+      collapseBtn.textContent = '▼ Expand';
+    }
     if ('speechSynthesis' in window) window.speechSynthesis.cancel();
     onDismiss?.();
   });
@@ -118,8 +137,9 @@ function wireModal({ onReplay, onToggleLoop, onDismiss } = {}) {
 
 // Collapses the modal down to just its controls (Note speed, Notes/string,
 // Replay/Loop/Mute/Dismiss), hiding the narration text -- clicking the same
-// button again is the "reset" back to showing it. Manual, not automatic: it
-// stays however the user last left it across Replay/Loop/switching lessons.
+// button again reveals it. showModal() always resets to collapsed when a
+// lesson starts (narration hidden by default, reveal on request); this
+// toggle just flips that state for as long as the modal stays up.
 function wireCollapseButton() {
   const modal = document.querySelector('.gt-lesson-modal');
   const btn = modal?.querySelector('.gt-lesson-modal__collapse-btn');

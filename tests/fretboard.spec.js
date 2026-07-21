@@ -51,6 +51,10 @@ test('what-is-a-chord copy matches what the fretboard actually renders', async (
   // not an action, so it never waits for that; wait for the visible modal
   // (an assertion, which does retry) first.
   await expect(page.locator('.gt-lesson-modal')).toBeVisible();
+  // Narration starts collapsed (hidden) by default -- expand it, both to
+  // test that reveal mechanism and because innerText() (unlike
+  // textContent) returns empty for a display:none element.
+  await page.locator('.gt-lesson-modal__collapse-btn').click();
   const modalText = await page.locator('.gt-lesson-modal__content').innerText();
 
   expect(modalText).toContain('marked 1 in red');
