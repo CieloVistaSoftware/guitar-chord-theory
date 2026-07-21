@@ -18,6 +18,29 @@ import { setAudioEnabled, toggleMuted, isMuted } from './audio.js';
 
 const HIGHLIGHT_CLASS = 'gt-lesson-highlight';
 
+// AI voice narration (Web Speech API -- no backend/API key needed, works
+// offline, fits the no-build static-site model). The lesson's OWN written
+// copy (the same text shown in the modal) IS the script -- speaking
+// whatever's actually on screen instead of a separate, easy-to-drift-out-
+// of-sync narration text maintained in two places. Respects the existing
+// Mute toggle (one mute silences both audio and voice, matching what a
+// user expects "mute" to mean); cancel() first so replaying/switching
+// lessons doesn't queue overlapping utterances.
+function speakNarration(contentEl) {
+  if (!('speechSynthesis' in window)) return;
+  window.speechSynthesis.cancel();
+  if (isMuted()) return;
+
+  const clone = contentEl.cloneNode(true);
+  // The chords-lesson heading nests an (i) info button whose tooltip text
+  // is only meant to be read on demand, not narrated as part of the intro.
+  clone.querySelectorAll('.gt-info-tooltip, .gt-info-btn').forEach((el) => el.remove());
+  const text = clone.textContent.replace(/\s+/g, ' ').trim();
+  if (!text) return;
+
+  window.speechSynthesis.speak(new SpeechSynthesisUtterance(text));
+}
+
 // Whichever section a lesson most recently revealed via highlightSection()
 // and/or showModal() -- the modal's Dismiss button un-reveals it too, so
 // closing the narration also closes any inline content (like the chords
@@ -78,12 +101,14 @@ async function showModal(section, { scrollToFretboard = true } = {}) {
   clone.querySelector('.gt-lesson-dismiss')?.remove(); // the modal has its own
   content.replaceChildren(...clone.childNodes);
   modal.hidden = false;
+  speakNarration(content);
 }
 
 function wireModal({ onReplay, onToggleLoop, onDismiss } = {}) {
   const modal = document.querySelector('.gt-lesson-modal');
   modal?.querySelector('.gt-lesson-modal__dismiss')?.addEventListener('click', () => {
     modal.hidden = true;
+    if ('speechSynthesis' in window) window.speechSynthesis.cancel();
     onDismiss?.();
   });
   modal?.querySelector('.gt-lesson-modal__replay')?.addEventListener('click', () => onReplay?.());
@@ -120,7 +145,14 @@ function wireMuteButton() {
     btn.setAttribute('aria-pressed', String(muted));
     btn.textContent = muted ? '🔇 Muted' : '🔊 Mute';
   };
-  btn.addEventListener('click', () => { toggleMuted(); sync(); });
+  btn.addEventListener('click', () => {
+    toggleMuted();
+    sync();
+    // Silence an in-progress narration immediately -- otherwise muting only
+    // takes effect for the *next* utterance, and the one already speaking
+    // keeps going until it finishes on its own.
+    if (isMuted() && 'speechSynthesis' in window) window.speechSynthesis.cancel();
+  });
   sync();
 }
 
@@ -159,12 +191,21 @@ function getDirection() {
 
 // Shows the Direction toggle only when Notes-per-string is exactly 2 --
 // every other value keeps today's up-only walk, so the control would just
-// be confusing/inert clutter otherwise.
+// be confusing/inert clutter otherwise. At nps=2, Direction's up/down
+// takes over exactly the job Notes-shown's above/below already does
+// (extend the shown pattern in that direction -- see
+// gt-fretboard.js#_currentNoteView), so Notes-shown swaps out to avoid
+// showing two controls that ask the same question.
 function wireDirectionToggle() {
   const npsSelect = document.querySelector('.gt-lesson-modal__nps-select');
   const directionCard = document.querySelector('.gt-direction-card');
+  const noteViewCard = document.querySelector('.gt-note-view-card');
   if (!npsSelect || !directionCard) return;
-  const sync = () => { directionCard.hidden = npsSelect.value !== '2'; };
+  const sync = () => {
+    const isTwo = npsSelect.value === '2';
+    directionCard.hidden = !isTwo;
+    if (noteViewCard) noteViewCard.hidden = isTwo;
+  };
   npsSelect.addEventListener('change', sync);
   sync();
 }
@@ -304,6 +345,12 @@ export function createLessonPlayer({ fretboard, diatonicChords, lessons, links =
   // different Notes-shown view (all/shown/below/above) redraws immediately.
   const noteViewSelect = document.querySelector('.gt-note-view-select');
   noteViewSelect?.addEventListener('change', () => fretboard.render());
+
+  // Direction (up/down/both), at nps=2, drives the same rendering as
+  // Notes-shown (see gt-fretboard.js#_currentNoteView) -- same live-render
+  // rule applies.
+  const directionSelect = document.querySelector('.gt-direction-select');
+  directionSelect?.addEventListener('change', () => fretboard.render());
 
   wireDirectionToggle();
 

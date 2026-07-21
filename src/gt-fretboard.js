@@ -513,7 +513,19 @@ export class GTFretboard extends HTMLElement {
   // uncapped reference-chart view); 'below'/'above' are what's just outside
   // that walk in each direction, for seeing what comes next without
   // widening notesPerString itself.
+  //
+  // At notesPerString=2, the Direction toggle (up/down/both) replaces this
+  // control entirely -- it asks the exact same question ("which direction
+  // should the shown pattern extend") using wording that matches what a
+  // 2-notes-per-string practice run means, so showing both at once would
+  // just be two controls fighting over the same job. up -> above, down ->
+  // below, both -> all.
   _currentNoteView() {
+    const npsSelect = document.querySelector('.gt-lesson-modal__nps-select');
+    const directionSelect = document.querySelector('.gt-direction-select');
+    if (npsSelect?.value === '2' && directionSelect && !directionSelect.closest('.gt-direction-card')?.hidden) {
+      return { up: 'above', down: 'below', both: 'all' }[directionSelect.value] || 'shown';
+    }
     const select = document.querySelector('.gt-note-view-select');
     return select ? select.value : 'shown';
   }

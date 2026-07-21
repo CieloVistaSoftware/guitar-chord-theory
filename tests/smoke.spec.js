@@ -32,6 +32,11 @@ test('wb-starter actually loaded -- the fretboard renders a real SVG neck', asyn
 
 test('the lessons dropdown is genuinely populated, not just present in the DOM', async ({ page }) => {
   await page.goto('/');
-  const optionCount = await page.locator('.gt-lesson-select option').count();
-  expect(optionCount).toBeGreaterThan(1);
+  // .count() is a one-shot read, not an auto-retrying assertion -- the
+  // dropdown is populated by the page's own <script type="module"> after
+  // an internal await chain (WB.scan(), etc.), which doesn't necessarily
+  // finish by the moment goto() resolves. Poll instead of reading once
+  // immediately (this exact gap intermittently produced a 0-count flake
+  // under load from the rest of the suite running first).
+  await expect.poll(() => page.locator('.gt-lesson-select option').count()).toBeGreaterThan(1);
 });
