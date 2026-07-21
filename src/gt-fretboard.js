@@ -46,6 +46,15 @@ export class GTFretboard extends HTMLElement {
     this._inversion = 'root'; // 'root' | 'first' | 'second' -- which voicing of the selected chord to show
     this._labelMode = 'number'; // 'number' | 'note' -- how scale-view dots are labeled
     this._focusRange = null; // null = show the whole neck; otherwise { start, end } fret numbers a lesson zoomed to
+    // Whenever nothing has explicitly focused the neck (_focusRange is
+    // null), auto-crop the viewBox to wherever the current scale view's
+    // dots actually fall instead of always showing all 22 frets -- a key
+    // like D's default 3-notes-per-string pattern starts around fret 10,
+    // so the un-cropped full neck left roughly the first 9 frets empty on
+    // one side. "Show full neck" (clearFocus()) is the explicit opt-out:
+    // once a user asks for the whole neck, this stays off until a lesson
+    // explicitly focuses it again.
+    this._autoCenterEnabled = true;
   }
 
   connectedCallback() {
@@ -114,6 +123,20 @@ export class GTFretboard extends HTMLElement {
     this.dispatchEvent(new CustomEvent('gt:focus-changed', { bubbles: true, detail: { range: null } }));
   }
 
+  /**
+   * The explicit "Show full neck" opt-out (index.html's button) -- turns
+   * off auto-centering permanently (until a lesson explicitly focuses the
+   * neck again), separate from clearFocus() itself: lessons with no fixed
+   * crop of their own (e.g. the Modes lesson) also call clearFocus() every
+   * time they run, which must NOT be read as "the user asked to see
+   * everything" or picking that lesson once would silently disable
+   * auto-centering forever afterward.
+   */
+  disableAutoCenter() {
+    this._autoCenterEnabled = false;
+    this.render();
+  }
+
   getFocusRange() {
     return this._focusRange;
   }
@@ -160,10 +183,42 @@ export class GTFretboard extends HTMLElement {
     return this._inversion;
   }
 
-  /** Whether fret f is within the currently focused/zoomed crop (see focusFrets/_focusRange) -- true when there's no active focus (the whole neck is showing). */
+  /**
+   * The range actually cropped to right now: an explicit lesson-set
+   * _focusRange if there is one; otherwise, unless auto-centering has been
+   * turned off (disableAutoCenter(), the "Show full neck" opt-out) or a
+   * chord shape is showing (chord shapes aren't part of this pattern),
+   * a range computed to fit snugly around wherever the current scale
+   * view's dots actually fall -- padded by 2 frets on each side. Without
+   * this, a key whose scale pattern starts well into the neck (e.g. D's
+   * default 3-notes-per-string walk starts around fret 10) left the whole
+   * unused low end of the neck sitting empty on one side.
+   */
+  _effectiveFocusRange() {
+    if (this._focusRange) return this._focusRange;
+    if (this._chord || !this._autoCenterEnabled) return null;
+    const rootPc = noteNameToPitchClass(this.rootNote);
+    const frets = this.fretCount;
+    const notesPerString = this._currentNotesPerString();
+    const positions = this._scaleWalkPositions(rootPc, frets, notesPerString);
+    const allowed = positions[this._currentNoteView()] || positions.shown;
+    let minFret = Infinity;
+    let maxFret = -Infinity;
+    for (const key of allowed) {
+      const f = Number(key.split('-')[1]);
+      if (f < minFret) minFret = f;
+      if (f > maxFret) maxFret = f;
+    }
+    if (minFret === Infinity) return null; // nothing rendered -- nothing sensible to crop to
+    const pad = 2;
+    return { start: Math.max(0, minFret - pad), end: Math.min(frets, maxFret + pad) };
+  }
+
+  /** Whether fret f is within the currently focused/zoomed crop (see _effectiveFocusRange) -- true when there's no active focus (the whole neck is showing). */
   _isFretInView(fret) {
-    if (!this._focusRange) return true;
-    return fret >= this._focusRange.start && fret <= this._focusRange.end;
+    const range = this._effectiveFocusRange();
+    if (!range) return true;
+    return fret >= range.start && fret <= range.end;
   }
 
   /**
@@ -349,11 +404,12 @@ export class GTFretboard extends HTMLElement {
     // range doesn't start at the open strings, so fret-0 lessons keep the
     // nut, open-string dots, and string-name labels in view.
     const margin = FRET_WIDTH * 0.5 + DOT_RADIUS + 5;
-    const viewBoxX = this._focusRange && this._focusRange.start > 0
-      ? FRETBOARD_PAD_LEFT + this._focusRange.start * FRET_WIDTH - margin
+    const effectiveRange = this._effectiveFocusRange();
+    const viewBoxX = effectiveRange && effectiveRange.start > 0
+      ? FRETBOARD_PAD_LEFT + effectiveRange.start * FRET_WIDTH - margin
       : 0;
-    const viewBoxWidth = this._focusRange
-      ? Math.min(fullWidth, FRETBOARD_PAD_LEFT + this._focusRange.end * FRET_WIDTH + margin) - viewBoxX
+    const viewBoxWidth = effectiveRange
+      ? Math.min(fullWidth, FRETBOARD_PAD_LEFT + effectiveRange.end * FRET_WIDTH + margin) - viewBoxX
       : fullWidth;
 
     const INVERSIONS = [

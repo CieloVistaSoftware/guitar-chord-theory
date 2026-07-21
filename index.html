@@ -390,7 +390,10 @@
       const focusIndicator = document.getElementById('focus-indicator');
       const focusRangeText = document.getElementById('focus-range-text');
       const fretboardEl = document.querySelector('gt-fretboard');
-      document.getElementById('show-full-neck-btn').addEventListener('click', () => fretboardEl.clearFocus());
+      document.getElementById('show-full-neck-btn').addEventListener('click', () => {
+        fretboardEl.disableAutoCenter();
+        fretboardEl.clearFocus();
+      });
       fretboardEl.addEventListener('gt:focus-changed', (e) => {
         const range = e.detail.range;
         focusIndicator.hidden = !range;
