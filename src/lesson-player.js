@@ -286,6 +286,22 @@ function syncModalControls(modalControls = []) {
 // picking one of these navigates instead of playing anything in place.
 const NAV_PREFIX = 'nav:';
 
+// Play works whenever there are notes on the fretboard to hear -- not
+// only once a lesson has been explicitly picked from the dropdown. The
+// default scale view is on screen from the moment the page loads, before
+// any lesson has ever run, so Play needs something to do in that case
+// too: this synthetic "lesson" just plays whatever the neck is currently
+// showing, with no narration of its own. Shares the exact same run/Stop/
+// Loop machinery as a real lesson (see runLesson) rather than a separate
+// code path.
+const CURRENT_VIEW_LESSON = {
+  id: '__current-view__',
+  modalControls: ['tempo', 'timeSignature'],
+  async run({ fretboard, getNoteDelayMs, getNotesPerString, getDirection, getTimeSignature }) {
+    await fretboard.playScaleDemo(getNoteDelayMs, getNotesPerString, getDirection, getTimeSignature);
+  },
+};
+
 export function createLessonPlayer({ fretboard, diatonicChords, lessons, links = [], selectEl, pageTitleEl, pageSubtitleEl }) {
   let playing = false;
   let looping = false;
@@ -303,14 +319,19 @@ export function createLessonPlayer({ fretboard, diatonicChords, lessons, links =
     btn.textContent = looping ? '🔁 Looping…' : '🔁 Loop';
   }
 
-  // One Play button does double duty (start the pending lesson, or replay
-  // the current one) instead of a separate header Play + modal Replay --
-  // enabled only when there's actually something to play and nothing is
-  // already playing. Stop is the mirror image -- only meaningful mid-play.
+  // One Play button does double duty (start the pending lesson, replay
+  // the current one, or -- if neither -- just play whatever the fretboard
+  // is already showing, see CURRENT_VIEW_LESSON) instead of a separate
+  // header Play + modal Replay. Enabled whenever there are actually notes
+  // on the neck to hear and nothing is already playing -- not gated on a
+  // lesson having been picked, since the default scale view is there from
+  // the moment the page loads. Stop is the mirror image -- only
+  // meaningful mid-play.
   function syncTransportButtons() {
     const playModalBtn = document.querySelector('.gt-lesson-modal__play');
     const stopBtn = document.querySelector('.gt-lesson-modal__stop');
-    if (playModalBtn) playModalBtn.disabled = playing || !(currentLessonId || pendingLessonId);
+    const hasNotesOnScreen = document.querySelectorAll('.gt-dot').length > 0;
+    if (playModalBtn) playModalBtn.disabled = playing || !hasNotesOnScreen;
     if (stopBtn) stopBtn.disabled = !playing;
   }
 
@@ -375,7 +396,7 @@ export function createLessonPlayer({ fretboard, diatonicChords, lessons, links =
       fretboard.stopPlayback();
       await currentRunPromise;
     }
-    const lesson = lessons.find((l) => l.id === id);
+    const lesson = id === CURRENT_VIEW_LESSON.id ? CURRENT_VIEW_LESSON : lessons.find((l) => l.id === id);
     if (!lesson) return;
 
     const myGeneration = ++runGeneration;
@@ -468,14 +489,18 @@ export function createLessonPlayer({ fretboard, diatonicChords, lessons, links =
   wireNarrationMuteButton();
   wireModal({
     onPlay: () => {
-      const idToRun = currentLessonId || pendingLessonId;
-      if (idToRun) runLesson(idToRun);
+      // A freshly-picked-but-not-yet-played dropdown selection always
+      // wins over replaying whatever happened to run before it (picking a
+      // NEW lesson has to actually start that one, not keep replaying the
+      // old one just because it ran more recently). Falls back to just
+      // playing the current view if neither is set (see CURRENT_VIEW_LESSON).
+      runLesson(pendingLessonId || currentLessonId || CURRENT_VIEW_LESSON.id);
     },
     onStop: () => stopLesson(),
     onToggleLoop: () => {
       looping = !looping;
       setLoopButtonState();
-      if (looping && currentLessonId && !playing) runLesson(currentLessonId);
+      if (looping && !playing) runLesson(currentLessonId || CURRENT_VIEW_LESSON.id);
     },
     onDismiss: () => {
       looping = false;

@@ -1,15 +1,35 @@
 /**
  * `npm start`: if something is already serving on PORT (e.g. a server left
- * running from a previous session), don't crash with EADDRINUSE -- and
- * don't open a new browser tab either (see the note below); just tell the
- * developer it's already up. Otherwise start http-server (which opens the
- * browser itself once it's actually listening).
+ * running from a previous session), don't crash with EADDRINUSE -- open a
+ * browser tab at it anyway (see the note below) instead of leaving the
+ * developer with nothing but a console message. Otherwise start
+ * http-server (which opens the browser itself once it's actually
+ * listening).
  */
 import { spawn } from 'child_process';
 import http from 'http';
 
 const PORT = 4000;
 const URL = `http://127.0.0.1:${PORT}`;
+
+// No portable, reliable way for a plain Node script to find or refresh a
+// tab a developer already has open (no CDP wired up, and this has to work
+// cross-platform) -- so this always opens a NEW tab/window at the bare
+// origin rather than refreshing whatever page (spellings.html, songs.html,
+// mid-lesson index.html, ...) they actually had open. That's an accepted
+// tradeoff (issue #20/reopened): seeing an extra tab beats seeing nothing.
+function openBrowser(url) {
+  if (process.platform === 'win32') {
+    // The empty "" is a required (and often forgotten) placeholder for
+    // `start`'s own window-title argument -- without it, `start` treats
+    // the URL itself as the title and fails to open anything.
+    spawn('cmd', ['/c', 'start', '""', url], { stdio: 'ignore', shell: true });
+  } else if (process.platform === 'darwin') {
+    spawn('open', [url], { stdio: 'ignore' });
+  } else {
+    spawn('xdg-open', [url], { stdio: 'ignore' });
+  }
+}
 
 // A raw TCP listen-probe (net.createServer().listen(port, '127.0.0.1')) is
 // unreliable on Windows: binding a new listener to the loopback address can
@@ -31,15 +51,8 @@ function isPortInUse(port) {
 
 const inUse = await isPortInUse(PORT);
 if (inUse) {
-  // Do NOT open a browser here. There's no portable, reliable way for a
-  // plain Node script to find or refresh a tab a developer already has
-  // open (no CDP wired up, and this has to work cross-platform) -- so
-  // rather than guessing, `start ""`/`open`/`xdg-open` would always pop a
-  // brand-new tab/window at the bare origin, hijacking whatever page
-  // (spellings.html, songs.html, mid-lesson index.html, ...) the developer
-  // actually had open. Just say so and let them switch to/refresh it
-  // themselves.
-  console.log(`Port ${PORT} is already serving something -- NOT opening a new tab; switch to or refresh your existing browser tab (or open ${URL} yourself if you don't have one).`);
+  console.log(`Port ${PORT} is already serving something -- opening a browser tab at ${URL} anyway (this opens a NEW tab rather than refreshing one you may already have, since a plain script can't reliably do that).`);
+  openBrowser(URL);
 } else {
   // -c-1 disables http-server's default Cache-Control: max-age=3600 -- with
   // it on, the browser silently keeps serving yesterday's JS/CSS on a normal

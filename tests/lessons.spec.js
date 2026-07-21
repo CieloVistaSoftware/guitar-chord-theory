@@ -4,9 +4,12 @@ test.beforeEach(async ({ page }) => {
   await page.goto('/');
 });
 
-// Lessons dropdown is populated; picking an option arms the Play button
-// (disabled until a lesson is selected) but does NOT start playback on its
-// own -- the user must explicitly click Play.
+// Lessons dropdown is populated; picking an option arms Play to run THAT
+// lesson but does NOT start playback on its own -- the user must
+// explicitly click Play. Play itself is already enabled before that (the
+// default scale view has notes on it from the moment the page loads --
+// see CURRENT_VIEW_LESSON in lesson-player.js), it just plays the current
+// view instead of a specific lesson until one is picked.
 test('lessons dropdown is populated; picking a lesson arms Play but does not autoplay', async ({ page }) => {
   const select = page.locator('.gt-lesson-select');
   await expect(select).toBeVisible();
@@ -20,7 +23,7 @@ test('lessons dropdown is populated; picking a lesson arms Play but does not aut
   await expect.poll(() => select.locator('option').count()).toBeGreaterThan(1);
 
   const playBtn = page.locator('.gt-lesson-modal__play');
-  await expect(playBtn).toBeDisabled();
+  await expect(playBtn).toBeEnabled();
 
   await select.selectOption('what-is-a-chord');
   // Selecting alone must not start playback.
@@ -135,6 +138,28 @@ test('changing Mode while the Modes lesson is active re-triggers the demo', asyn
 
   await expect(page.locator('.gt-lesson-select')).toBeEnabled({ timeout: 15000 });
   await expect.poll(() => page.locator('.gt-dot').count()).toBe(18);
+});
+
+// Play works whenever there are notes on the fretboard to hear, not only
+// once a lesson has been explicitly picked -- the default scale view is
+// on screen from the moment the page loads, before any lesson has ever
+// run, so clicking Play with nothing picked plays that current view
+// directly (CURRENT_VIEW_LESSON in lesson-player.js).
+test('clicking Play with no lesson picked plays the current fretboard view', async ({ page }) => {
+  const select = page.locator('.gt-lesson-select');
+  const playBtn = page.locator('.gt-lesson-modal__play');
+
+  await expect(select).toHaveValue('');
+  await expect(playBtn).toBeEnabled();
+
+  await playBtn.click();
+
+  // Playing disables the select, same as running a real lesson would.
+  await expect(select).toBeDisabled();
+  await expect(playBtn).toBeDisabled();
+
+  await expect(select).toBeEnabled({ timeout: 15000 });
+  await expect(playBtn).toBeEnabled();
 });
 
 // Issue #25 -- Stop halts playback entirely (fretboard goes idle, UI
