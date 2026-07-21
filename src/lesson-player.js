@@ -198,21 +198,14 @@ function getDirection() {
 
 // Shows the Direction toggle only when Notes-per-string is exactly 2 --
 // every other value keeps today's up-only walk, so the control would just
-// be confusing/inert clutter otherwise. At nps=2, Direction's up/down
-// takes over exactly the job Notes-shown's above/below already does
-// (extend the shown pattern in that direction -- see
-// gt-fretboard.js#_currentNoteView), so Notes-shown swaps out to avoid
-// showing two controls that ask the same question.
+// be confusing/inert clutter otherwise. Purely a playback-order control
+// (see getDirection/playScaleDemo) -- separate from Add Notes, which
+// controls what's rendered/audible regardless of notesPerString.
 function wireDirectionToggle() {
   const npsSelect = document.querySelector('.gt-lesson-modal__nps-select');
   const directionCard = document.querySelector('.gt-direction-card');
-  const noteViewCard = document.querySelector('.gt-note-view-card');
   if (!npsSelect || !directionCard) return;
-  const sync = () => {
-    const isTwo = npsSelect.value === '2';
-    directionCard.hidden = !isTwo;
-    if (noteViewCard) noteViewCard.hidden = isTwo;
-  };
+  const sync = () => { directionCard.hidden = npsSelect.value !== '2'; };
   npsSelect.addEventListener('change', sync);
   sync();
 }
@@ -348,17 +341,6 @@ export function createLessonPlayer({ fretboard, diatonicChords, lessons, links =
     // Key, etc).
     npsSelect.addEventListener('change', () => fretboard.render());
   }
-
-  // Same live-render pattern as Notes-per-string above -- picking a
-  // different Notes-shown view (all/shown/below/above) redraws immediately.
-  const noteViewSelect = document.querySelector('.gt-note-view-select');
-  noteViewSelect?.addEventListener('change', () => fretboard.render());
-
-  // Direction (up/down/both), at nps=2, drives the same rendering as
-  // Notes-shown (see gt-fretboard.js#_currentNoteView) -- same live-render
-  // rule applies.
-  const directionSelect = document.querySelector('.gt-direction-select');
-  directionSelect?.addEventListener('change', () => fretboard.render());
 
   wireDirectionToggle();
 

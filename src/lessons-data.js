@@ -101,18 +101,13 @@ export function buildLessons({ diatonicChords }) {
       // Full neck, not a fixed crop -- which frets are relevant shifts with
       // both the current Key and which mode's tonic is picked, so there's
       // no single range that always fits. Whichever notes get played are
-      // still made silent-if-off-screen safe by forcing Notes-shown to
-      // 'all' below, same rule as everywhere else (#19).
+      // still made silent-if-off-screen safe by forcing every occurrence
+      // to render below, same rule as everywhere else (#19).
       modalControls: ['tempo', 'mode'],
       async run({ fretboard, showModal, getNoteDelayMs }) {
         await showModal(document.getElementById('modes-lesson'));
         fretboard.clearFocus();
-
-        const noteView = document.querySelector('.gt-note-view-select');
-        if (noteView) {
-          noteView.value = 'all';
-          noteView.dispatchEvent(new Event('change'));
-        }
+        fretboard.showEveryOccurrence();
 
         const modeSelect = document.querySelector('.gt-mode-select');
         const modeIndex = modeSelect ? Number(modeSelect.value) : 0;

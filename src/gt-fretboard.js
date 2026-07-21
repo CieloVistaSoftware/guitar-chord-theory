@@ -55,13 +55,24 @@ export class GTFretboard extends HTMLElement {
     // once a user asks for the whole neck, this stays off until a lesson
     // explicitly focuses it again.
     this._autoCenterEnabled = true;
+    // "Add Notes" (+/-), the header control next to Notes/string -- each
+    // click of + extends the scale view upward by notesPerString more
+    // occurrences per string (e.g. +18 total at the nps=3 default: 3 more
+    // per string x 6 strings); each click of - does the same extending
+    // downward, toward the nut. Both accumulate across repeated clicks and
+    // reset whenever the key/root changes (see attributeChangedCallback).
+    this._extraAboveNotesPerString = 0;
+    this._extraBelowNotesPerString = 0;
   }
 
   connectedCallback() {
     this.render();
   }
 
-  attributeChangedCallback() {
+  attributeChangedCallback(name) {
+    // A new key re-bases the whole scale pattern -- an Add Notes extension
+    // carried over from the old key wouldn't line up with anything.
+    if (name === 'root') this._resetAddNotes();
     if (this.isConnected) this.render();
   }
 
@@ -201,7 +212,7 @@ export class GTFretboard extends HTMLElement {
     const frets = this.fretCount;
     const notesPerString = this._currentNotesPerString();
     const positions = this._scaleWalkPositions(rootPc, frets, notesPerString);
-    const allowed = positions[this._currentNoteView()] || positions.shown;
+    const allowed = positions.extended;
     let minFret = Infinity;
     let maxFret = -Infinity;
     for (const key of allowed) {
@@ -342,23 +353,30 @@ export class GTFretboard extends HTMLElement {
       return;
     }
 
-    let pitchFloor = rootMidi;
+    // Same shared, non-climbing floor for every string as
+    // _scaleWalkPositions -- each string independently takes its own
+    // first notesPerString ascending occurrences starting from the key's
+    // root pitch, not from wherever the previous string left off. That's
+    // what keeps this a tight, aligned box shape across the neck (and
+    // matches what's actually rendered/clickable) instead of a diagonal
+    // that spreads wider the further right you go.
     const sequence = [];
     for (let s = 0; s < 6; s++) {
       const openPc = STANDARD_TUNING[s];
       const openMidi = STANDARD_TUNING_MIDI[s];
       const notesOnThisString = [];
       const npsForThisString = resolveNps();
-      for (let f = 0; f <= frets && notesOnThisString.length < npsForThisString; f++) {
+      // f starts at 1 -- matches _renderDots/_scaleWalkPositions: an open
+      // string has no dot to flash, so counting it as one of the
+      // notesPerString slots would silently shrink this string to one
+      // fewer audible note (and add a wasted silent gap in the rhythm).
+      for (let f = 1; f <= frets && notesOnThisString.length < npsForThisString; f++) {
         const midi = openMidi + f;
-        if (midi < pitchFloor) continue;
+        if (midi < rootMidi) continue;
         if (!intervalAt(rootPc, openPc, f)) continue;
         notesOnThisString.push(midi);
       }
       sequence.push(...notesOnThisString);
-      // The next string picks up strictly above the last note just played,
-      // so the pattern keeps climbing instead of doubling back down.
-      if (notesOnThisString.length) pitchFloor = notesOnThisString[notesOnThisString.length - 1] + 1;
     }
 
     const resolveDirection = () => (typeof direction === 'function' ? direction() : direction);
@@ -587,104 +605,143 @@ export class GTFretboard extends HTMLElement {
     return select ? Number(select.value) : 3;
   }
 
-  // Which slice of the neck the scale view currently shows -- read live off
-  // the header's Note view select, same pattern as _currentNotesPerString().
-  // 'shown' (default) is the notesPerString-capped walk everything else on
-  // the page assumes; 'all' is every occurrence of every degree (the old,
-  // uncapped reference-chart view); 'below'/'above' are what's just outside
-  // that walk in each direction, for seeing what comes next without
-  // widening notesPerString itself.
-  //
-  // At notesPerString=2, the Direction toggle (up/down/both) replaces this
-  // control entirely -- it asks the exact same question ("which direction
-  // should the shown pattern extend") using wording that matches what a
-  // 2-notes-per-string practice run means, so showing both at once would
-  // just be two controls fighting over the same job. up -> above, down ->
-  // below, both -> all.
-  _currentNoteView() {
-    const npsSelect = document.querySelector('.gt-lesson-modal__nps-select');
-    const directionSelect = document.querySelector('.gt-direction-select');
-    if (npsSelect?.value === '2' && directionSelect && !directionSelect.closest('.gt-direction-card')?.hidden) {
-      return { up: 'above', down: 'below', both: 'all' }[directionSelect.value] || 'shown';
-    }
-    const select = document.querySelector('.gt-note-view-select');
-    return select ? select.value : 'shown';
-  }
-
-  // Computes all four (string, fret) position sets in one pass over the
-  // neck, given notesPerString -- the low-E-to-high-E, strictly-ascending-
-  // pitch walk used by both _renderDots (so the neck never shows/allows
-  // more than N per string in 'shown' mode) and playScaleDemo (so the audio
-  // matches whatever's on screen). Keyed as "s-f" strings for cheap Set
-  // membership checks.
-  //   shown -- exactly what notesPerString picks per string (today's view)
-  //   all   -- every occurrence of every degree, uncapped
-  //   below -- on each string, occurrences below (lower-fretted than) what's shown there
-  //   above -- every occurrence, any string, pitched above the last note 'shown' reaches
+  /**
+   * The base per-string walk (each string independently takes its first
+   * `notesPerString` ascending scale-tone occurrences at or above the
+   * key's root pitch -- the SAME starting floor for every string, not one
+   * that climbs string-to-string) plus the "Add Notes" +/- extensions
+   * above/below that base (see addNotesAbove/addNotesBelow) -- each
+   * string independently continues its own walk further in that
+   * direction. Keyed as "s-f" strings for cheap Set membership checks.
+   *
+   * Using the same starting floor for every string, rather than each
+   * string inheriting wherever the previous one left off, is what keeps
+   * this a tight, aligned "box" shape across the neck -- the standard
+   * notes-per-string practice pattern -- instead of a diagonal that
+   * spreads wider and wider the further you move across the strings.
+   * When notesPerString changes, every string's own first N stay exactly
+   * where they were and just gain/lose one at the end, string by string,
+   * 6th to 1st -- not a wholesale reshuffle.
+   *
+   *   shown    -- exactly what notesPerString picks per string
+   *   extended -- shown, plus whatever Add Notes has added above/below
+   */
   _scaleWalkPositions(rootPc, frets, notesPerString) {
     const shown = new Set();
-    const all = new Set();
-    const below = new Set();
-    const above = new Set();
+    const extended = new Set();
     const rootMidi = STANDARD_TUNING_MIDI[0] + this.rootFretOnSixthString();
-    let pitchFloor = rootMidi;
-    // Per-string, not global -- each string's own "shown" range ends at a
-    // different pitch (low strings top out lower than high strings), so
-    // "above" has to pick up right where THAT string's own pattern left
-    // off. A single global max-across-all-strings threshold left a dead
-    // zone on every string that didn't happen to be the single highest one
-    // (confirmed: the B string's own next few notes past its shown range
-    // were being skipped because they were still below the high-E string's
-    // global max, even though they were clearly "next" for the B string).
-    const maxShownMidiByString = new Array(6).fill(-Infinity);
+    const perString = new Array(6).fill(null); // { minFret, maxMidi } once a string has any shown notes
 
     for (let s = 0; s < 6; s++) {
       const openPc = STANDARD_TUNING[s];
       const openMidi = STANDARD_TUNING_MIDI[s];
       const notesOnThisString = [];
-      for (let f = 0; f <= frets; f++) {
-        if (!intervalAt(rootPc, openPc, f)) continue;
-        all.add(`${s}-${f}`);
+      // f starts at 1 -- scale view never marks open strings (see
+      // _renderDots's own comment), so counting f=0 as one of the
+      // notesPerString slots here would silently short this string by one
+      // actually-rendered dot (confirmed: it was consuming a slot on an
+      // invisible open-string match, leaving only notesPerString-1 dots
+      // ever drawn on that string).
+      for (let f = 1; f <= frets && notesOnThisString.length < notesPerString; f++) {
         const midi = openMidi + f;
-        if (midi >= pitchFloor && notesOnThisString.length < notesPerString) {
-          notesOnThisString.push({ f, midi });
-        }
+        if (midi < rootMidi) continue;
+        if (!intervalAt(rootPc, openPc, f)) continue;
+        notesOnThisString.push({ f, midi });
       }
-      for (const { f } of notesOnThisString) shown.add(`${s}-${f}`);
+      for (const { f } of notesOnThisString) {
+        shown.add(`${s}-${f}`);
+        extended.add(`${s}-${f}`);
+      }
       if (notesOnThisString.length) {
-        pitchFloor = notesOnThisString[notesOnThisString.length - 1].midi + 1;
-        maxShownMidiByString[s] = notesOnThisString[notesOnThisString.length - 1].midi;
-        const minShownFret = notesOnThisString[0].f;
-        for (let f = 0; f < minShownFret; f++) {
-          if (intervalAt(rootPc, openPc, f)) below.add(`${s}-${f}`);
-        }
+        perString[s] = {
+          minFret: notesOnThisString[0].f,
+          maxMidi: notesOnThisString[notesOnThisString.length - 1].midi,
+        };
       }
     }
+
+    const extraAbove = this._extraAboveNotesPerString || 0;
+    const extraBelow = this._extraBelowNotesPerString || 0;
     for (let s = 0; s < 6; s++) {
+      const info = perString[s];
+      if (!info) continue;
       const openPc = STANDARD_TUNING[s];
       const openMidi = STANDARD_TUNING_MIDI[s];
-      for (let f = 0; f <= frets; f++) {
-        if (openMidi + f > maxShownMidiByString[s] && intervalAt(rootPc, openPc, f)) above.add(`${s}-${f}`);
+      if (extraAbove > 0) {
+        let count = 0;
+        for (let f = 1; f <= frets && count < extraAbove; f++) {
+          const midi = openMidi + f;
+          if (midi <= info.maxMidi) continue;
+          if (!intervalAt(rootPc, openPc, f)) continue;
+          extended.add(`${s}-${f}`);
+          count++;
+        }
+      }
+      if (extraBelow > 0) {
+        let count = 0;
+        for (let f = info.minFret - 1; f >= 1 && count < extraBelow; f--) {
+          if (!intervalAt(rootPc, openPc, f)) continue;
+          extended.add(`${s}-${f}`);
+          count++;
+        }
       }
     }
-    // 'below'/'above' extend the shown pattern in that direction rather than
-    // replacing it -- picking "above" should read as "everything already
-    // shown, plus keep going up to the top of the neck," not swap to a
-    // completely different, disconnected set of dots.
-    const belowPlusShown = new Set([...below, ...shown]);
-    const abovePlusShown = new Set([...above, ...shown]);
-    return { shown, all, below: belowPlusShown, above: abovePlusShown };
+    return { shown, extended };
+  }
+
+  /** How many more notes-per-string worth "Add Notes +" has extended the view above the base pattern (0 = none). */
+  getExtraNotesAbove() {
+    return this._extraAboveNotesPerString || 0;
+  }
+
+  /** How many more notes-per-string worth "Add Notes -" has extended the view below the base pattern (0 = none). */
+  getExtraNotesBelow() {
+    return this._extraBelowNotesPerString || 0;
+  }
+
+  /** "Add Notes +" -- extends the scale view upward by one more notesPerString-sized batch per string, across all six strings. Accumulates across repeated clicks. */
+  addNotesAbove() {
+    this._extraAboveNotesPerString += this._currentNotesPerString();
+    this.render();
+  }
+
+  /** "Add Notes -" -- extends the scale view downward (toward the nut) the same way. */
+  addNotesBelow() {
+    this._extraBelowNotesPerString += this._currentNotesPerString();
+    this.render();
+  }
+
+  /**
+   * Forces every scale-tone occurrence across the whole neck to actually
+   * render (and so be pluckable/audible -- see #19), regardless of
+   * Notes/string or Add Notes state. Used by lessons whose notes may fall
+   * entirely outside the current pattern -- e.g. the Modes lesson plays a
+   * different tonic's octave, which the base notesPerString-capped walk
+   * has no reason to already include. Not persisted as a separate mode;
+   * it's implemented as a big Add Notes extension in both directions, so
+   * it composes with everything else (Key change, "Show full neck") the
+   * normal way instead of needing its own special-cased state.
+   */
+  showEveryOccurrence() {
+    this._extraAboveNotesPerString = this.fretCount;
+    this._extraBelowNotesPerString = this.fretCount;
+    this.render();
+  }
+
+  /** Resets both Add Notes extensions back to 0 -- called whenever the root/key changes, since the whole pattern re-bases and a carried-over extension from the old key wouldn't mean anything. */
+  _resetAddNotes() {
+    this._extraAboveNotesPerString = 0;
+    this._extraBelowNotesPerString = 0;
   }
 
   // Never shows (or allows clicking/playing) more than notesPerString dots
-  // per string in the default 'shown' view -- capped to exactly the
-  // positions the scale demo would play, not every occurrence of every
-  // degree across all 22 frets, unless the Note view select says otherwise.
+  // per string, plus whatever "Add Notes" has extended above/below that --
+  // not every occurrence of every degree across all 22 frets.
   _renderDots(rootPc, frets) {
     let out = '';
     const notesPerString = this._currentNotesPerString();
     const positions = this._scaleWalkPositions(rootPc, frets, notesPerString);
-    const allowed = positions[this._currentNoteView()] || positions.shown;
+    const allowed = positions.extended;
     for (let s = 0; s < 6; s++) {
       const y = this._rowY(s);
       const openPc = STANDARD_TUNING[s];

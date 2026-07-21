@@ -195,14 +195,11 @@
             <option value="5">5</option>
           </select>
         </span>
-        <span class="gt-key-card gt-note-view-card">
-          Notes shown
-          <select class="gt-note-view-select" autocomplete="off">
-            <option value="shown" selected>Only those shown</option>
-            <option value="all">All notes</option>
-            <option value="below">Only those below those shown</option>
-            <option value="above">All notes up from the last one</option>
-          </select>
+        <span class="gt-key-card gt-add-notes-card">
+          Add Notes
+          <button type="button" class="gt-stepper__btn gt-add-notes-below" aria-label="Add notes below the root">−</button>
+          <span class="gt-stepper__value gt-add-notes-value">+0 / −0</span>
+          <button type="button" class="gt-stepper__btn gt-add-notes-above" aria-label="Add notes above">+</button>
         </span>
         <span class="gt-key-card gt-direction-card" hidden>
           Direction
@@ -482,8 +479,33 @@
     // final initial value -- wiring it earlier left the Key stepper's
     // label blank until the first click, since key-select's <option>s
     // don't exist yet at that point in the script.
-    ['#key-select', '.gt-lesson-modal__nps-select', '.gt-note-view-select', '.gt-direction-select', '.gt-mode-select', '.gt-time-signature-select']
+    ['#key-select', '.gt-lesson-modal__nps-select', '.gt-direction-select', '.gt-mode-select', '.gt-time-signature-select']
       .forEach((sel) => wireStepper(document.querySelector(sel)));
+
+    // Add Notes (+/-) isn't a cycling select like the others -- it's an
+    // unbounded accumulator (each click extends the view further, doesn't
+    // just pick from a fixed list) -- see gt-fretboard.js#addNotesAbove/
+    // addNotesBelow.
+    {
+      const valueEl = document.querySelector('.gt-add-notes-value');
+      const syncAddNotesValue = () => {
+        if (!valueEl) return;
+        valueEl.textContent = `+${fretboard.getExtraNotesAbove() * 6} / −${fretboard.getExtraNotesBelow() * 6}`;
+      };
+      document.querySelector('.gt-add-notes-above')?.addEventListener('click', () => {
+        fretboard.addNotesAbove();
+        syncAddNotesValue();
+      });
+      document.querySelector('.gt-add-notes-below')?.addEventListener('click', () => {
+        fretboard.addNotesBelow();
+        syncAddNotesValue();
+      });
+      // Changing Key resets the fretboard's own extra-above/below counters
+      // (a carried-over extension from the old key wouldn't line up with
+      // anything) -- keep this label in sync with that reset too.
+      document.addEventListener('gt:root-picked', syncAddNotesValue);
+      document.getElementById('key-select')?.addEventListener('change', syncAddNotesValue);
+    }
   </script>
 </body>
 </html>
