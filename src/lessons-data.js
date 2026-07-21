@@ -10,8 +10,7 @@
  * depend on the currently selected key.
  */
 import { buildChordShapeEventDetail, playChordAudio } from './chord-shape-builder.js';
-import { noteNameToPitchClass } from './theory.js';
-import { playModeDemo } from './mode-demo.js';
+import { noteNameToPitchClass, modeInfo } from './theory.js';
 
 function wait(ms) {
   return new Promise((resolve) => setTimeout(resolve, ms));
@@ -98,21 +97,26 @@ export function buildLessons({ diatonicChords }) {
       title: 'The 7 modes of the major scale',
       blurb: 'Same notes, different starting point -- hear how each mode sounds.',
       sectionId: 'modes-lesson',
-      // Full neck, not a fixed crop -- which frets are relevant shifts with
-      // both the current Key and which mode's tonic is picked, so there's
-      // no single range that always fits. Whichever notes get played are
-      // still made silent-if-off-screen safe by forcing every occurrence
-      // to render below, same rule as everywhere else (#19).
+      // No fixed crop -- auto-centering (gt-fretboard.js#_effectiveFocusRange)
+      // zooms to wherever this mode's own pattern actually falls, same as
+      // the main scale lesson, once setWalkAnchor() re-anchors it below.
       modalControls: ['tempo', 'mode'],
-      async run({ fretboard, showModal, getNoteDelayMs }) {
+      async run({ fretboard, showModal, getNoteDelayMs, getNotesPerString, getDirection, getTimeSignature }) {
         await showModal(document.getElementById('modes-lesson'));
         fretboard.clearFocus();
-        fretboard.showEveryOccurrence();
 
         const modeSelect = document.querySelector('.gt-mode-select');
         const modeIndex = modeSelect ? Number(modeSelect.value) : 0;
         const parentRootPc = noteNameToPitchClass(fretboard.rootNote);
-        await playModeDemo(fretboard, parentRootPc, modeIndex, getNoteDelayMs);
+        const { rootPc: modeRootPc } = modeInfo(parentRootPc, modeIndex);
+        // Re-anchors the SAME scale-walk pattern the main scale lesson uses
+        // (shared starting fret on the 6th string, walking up to the 1st)
+        // at this mode's own tonic instead of the parent key's -- a mode is
+        // the parent key's exact 7 notes, just re-rooted, so this shows
+        // (and Add Notes extends) only that mode's own box, not the whole
+        // neck. See gt-fretboard.js#setWalkAnchor.
+        fretboard.setWalkAnchor(modeRootPc);
+        await fretboard.playScaleDemo(getNoteDelayMs, getNotesPerString, getDirection, getTimeSignature);
       },
     },
   ];

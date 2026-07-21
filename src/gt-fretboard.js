@@ -63,12 +63,28 @@ export class GTFretboard extends HTMLElement {
     // but in the opposite direction). Resets to 0 whenever the key/root
     // changes (see attributeChangedCallback).
     this._addNotesLevel = 0;
-    // Temporary override used by showEveryOccurrence() (e.g. the Modes
-    // lesson) -- see that method's own comment.
-    this._forceShowEverything = false;
+    // Re-anchors the scale-walk pattern (_scaleWalkPositions/playScaleDemo)
+    // at a DIFFERENT pitch class's position on the 6th string, without
+    // changing which notes qualify as scale members -- null (the default)
+    // means "use this.rootNote's own position," today's normal behavior.
+    // Set by the Modes lesson (setWalkAnchor()) so each mode's own tonic
+    // becomes where the box starts, since a mode shares the parent key's
+    // exact 7 notes and only ever moves where the walk begins. Cleared by
+    // focusFrets()/clearFocus() (every lesson-start path goes through one
+    // of those) and by a root/key change, so it never leaks into an
+    // unrelated lesson's view.
+    this._walkAnchorPc = null;
     // Traditional fret-position inlay dots (frets 3,5,7,9,12,15,17,19,21...)
     // -- purely decorative/orientation, on by default like a real neck.
     this._showFretMarkers = true;
+    // Bumped by stopPlayback() and by playScaleDemo() itself every time it
+    // starts -- an in-flight playScaleDemo loop checks this before each
+    // note and abandons the rest of its run the instant it no longer
+    // matches, instead of always finishing the whole sequence once
+    // started. Lets something with higher priority (e.g. changing Mode
+    // mid-demo) take over right away rather than being silently ignored
+    // while the old run is still going.
+    this._playbackGen = 0;
   }
 
   connectedCallback() {
@@ -77,8 +93,12 @@ export class GTFretboard extends HTMLElement {
 
   attributeChangedCallback(name) {
     // A new key re-bases the whole scale pattern -- an Add Notes extension
-    // carried over from the old key wouldn't line up with anything.
-    if (name === 'root') this._resetAddNotes();
+    // (or a mode's walk anchor) carried over from the old key wouldn't
+    // line up with anything.
+    if (name === 'root') {
+      this._resetAddNotes();
+      this._walkAnchorPc = null;
+    }
     if (this.isConnected) this.render();
   }
 
@@ -128,16 +148,44 @@ export class GTFretboard extends HTMLElement {
    * the fretboard doesn't render that banner itself.
    */
   focusFrets(start, end) {
+    this._walkAnchorPc = null; // a fixed crop replaces whatever pattern was showing -- any mode anchor from a prior lesson no longer applies
     this._focusRange = { start, end };
     this.render();
     this.dispatchEvent(new CustomEvent('gt:focus-changed', { bubbles: true, detail: { range: this._focusRange } }));
   }
 
   clearFocus() {
+    // Reset unconditionally, BEFORE the early-return below -- the Modes
+    // lesson calls clearFocus() on every run (see its own comment above),
+    // but _focusRange is already null on every run after the first, so an
+    // anchor reset placed after the guard would never fire when it matters
+    // most: right before that same lesson calls setWalkAnchor() again.
+    this._walkAnchorPc = null;
     if (!this._focusRange) return;
     this._focusRange = null;
     this.render();
     this.dispatchEvent(new CustomEvent('gt:focus-changed', { bubbles: true, detail: { range: null } }));
+  }
+
+  /**
+   * Temporarily re-anchors the scale-walk pattern (_scaleWalkPositions,
+   * playScaleDemo) at a different pitch class's position on the 6th string
+   * -- used by the Modes lesson so each mode's own tonic becomes where the
+   * box starts, while note membership/degree-coloring still test against
+   * THIS fretboard's own root (a mode is the parent key's exact 7 notes,
+   * just re-rooted -- see theory.js#modeInfo). Cleared by focusFrets()/
+   * clearFocus() and by a root change, so it never leaks into an unrelated
+   * lesson's view.
+   */
+  setWalkAnchor(pc) {
+    this._walkAnchorPc = pc;
+    this.render();
+  }
+
+  /** The fret on the 6th string (low E) that the scale walk currently starts from -- this fretboard's own root, unless setWalkAnchor() has re-anchored it elsewhere. */
+  _walkAnchorFretOnSixthString() {
+    const anchorPc = this._walkAnchorPc ?? noteNameToPitchClass(this.rootNote);
+    return fretForPitchClass(STANDARD_TUNING[0], anchorPc);
   }
 
   /**
@@ -242,6 +290,17 @@ export class GTFretboard extends HTMLElement {
     return { start: Math.max(0, minFret - pad), end: Math.min(frets, maxFret + pad) };
   }
 
+  /**
+   * Abandons whatever playScaleDemo() run is currently in flight -- it
+   * bails out (without finishing its remaining notes) the instant it next
+   * checks, instead of always running its whole sequence once started.
+   * For something that needs to take over playback right away (e.g.
+   * changing Mode mid-demo) rather than waiting its turn.
+   */
+  stopPlayback() {
+    this._playbackGen++;
+  }
+
   /** Whether fret f is within the currently focused/zoomed crop (see _effectiveFocusRange) -- true when there's no active focus (the whole neck is showing). */
   _isFretInView(fret) {
     const range = this._effectiveFocusRange();
@@ -339,9 +398,13 @@ export class GTFretboard extends HTMLElement {
    */
   async playScaleDemo(delayMs = 650, notesPerString = 3, direction = 'up', beatsPerMeasure = 4) {
     this.clearChord();
+    // Claims this playback slot -- superseded (by another playScaleDemo
+    // call, or by an explicit stopPlayback()) the instant this no longer
+    // matches this._playbackGen, checked before every note below.
+    const myGen = ++this._playbackGen;
     const rootPc = noteNameToPitchClass(this.rootNote);
     const frets = this.fretCount;
-    const rootMidi = STANDARD_TUNING_MIDI[0] + this.rootFretOnSixthString();
+    const rootMidi = STANDARD_TUNING_MIDI[0] + this._walkAnchorFretOnSixthString();
     const resolveNps = () => (typeof notesPerString === 'function' ? notesPerString() : notesPerString);
 
     if (!resolveNps()) {
@@ -349,6 +412,7 @@ export class GTFretboard extends HTMLElement {
       await this._playAndWait(previousMidi, delayMs);
 
       for (const degree of MAJOR_SCALE_INTERVALS.slice(1)) {
+        if (this._playbackGen !== myGen) return; // superseded -- abandon the rest of this run
         let best = null;
         for (let s = 0; s < 6; s++) {
           const openPc = STANDARD_TUNING[s];
@@ -372,11 +436,11 @@ export class GTFretboard extends HTMLElement {
 
     // Same per-string algorithm as _scaleWalkPositions -- every string's
     // search is constrained to the SAME fret (established by the low E
-    // string's own root position) and higher. Nothing below it is
-    // allowed, even if that string's own nearest root occurrence would
-    // otherwise fall earlier on the neck. Matches what's actually
-    // rendered/clickable.
-    const startFret = Math.max(1, this.rootFretOnSixthString());
+    // string's own anchor position, see _walkAnchorFretOnSixthString) and
+    // higher. Nothing below it is allowed, even if that string's own
+    // nearest root occurrence would otherwise fall earlier on the neck.
+    // Matches what's actually rendered/clickable.
+    const startFret = Math.max(1, this._walkAnchorFretOnSixthString());
     const sequence = [];
     for (let s = 0; s < 6; s++) {
       const openPc = STANDARD_TUNING[s];
@@ -390,16 +454,29 @@ export class GTFretboard extends HTMLElement {
       sequence.push(...notesOnThisString);
     }
 
+    // Every string plays its own full notesPerString batch before moving to
+    // the next, in order -- but guitar strings overlap in range, so a later
+    // string's walk can land on the exact same pitch an earlier string
+    // already played. Never sound (or flash) that same pitch twice in one
+    // pass -- keep only each MIDI value's first occurrence, in walk order.
+    const seenMidi = new Set();
+    const dedupedSequence = sequence.filter((midi) => {
+      if (seenMidi.has(midi)) return false;
+      seenMidi.add(midi);
+      return true;
+    });
+
     const resolveDirection = () => (typeof direction === 'function' ? direction() : direction);
-    const toPlay = resolveDirection() === 'down' ? [...sequence].reverse()
-      : resolveDirection() === 'both' ? [...sequence, ...[...sequence].reverse().slice(1)]
-      : sequence;
+    const toPlay = resolveDirection() === 'down' ? [...dedupedSequence].reverse()
+      : resolveDirection() === 'both' ? [...dedupedSequence, ...[...dedupedSequence].reverse().slice(1)]
+      : dedupedSequence;
 
     const resolveBeats = () => {
       const n = typeof beatsPerMeasure === 'function' ? beatsPerMeasure() : beatsPerMeasure;
       return n > 0 ? n : 4;
     };
     for (let i = 0; i < toPlay.length; i++) {
+      if (this._playbackGen !== myGen) return; // superseded -- abandon the rest of this run
       await this._playAndWait(toPlay[i], delayMs, i % resolveBeats() === 0);
     }
   }
@@ -684,11 +761,15 @@ export class GTFretboard extends HTMLElement {
     const shown = new Set();
     const extended = new Set();
     const perString = new Array(6).fill(null); // { minFret, maxMidi } once a string has any shown notes
-    // Established once, by the low E string's own root position -- every
+    // Established once, by the low E string's own anchor position -- every
     // other string's search is constrained to this SAME fret and higher.
     // Nothing below it is allowed, even if that string's own nearest root
-    // occurrence would otherwise fall earlier on the neck.
-    const startFret = this.rootFretOnSixthString();
+    // occurrence would otherwise fall earlier on the neck. Normally this
+    // fretboard's own root; the Modes lesson re-anchors it at a mode's own
+    // tonic instead (setWalkAnchor()) while `rootPc` below -- which decides
+    // which notes actually qualify -- always stays the parent key's root,
+    // since a mode shares the exact same 7 notes.
+    const startFret = this._walkAnchorFretOnSixthString();
 
     for (let s = 0; s < 6; s++) {
       const openPc = STANDARD_TUNING[s];
@@ -713,10 +794,12 @@ export class GTFretboard extends HTMLElement {
     // A positive level extends above the base pattern; negative extends
     // below (toward the nut) the same way, in the opposite direction.
     // Only one direction is ever active at once -- the level is signed,
-    // not two independent counters. showEveryOccurrence() overrides both
-    // directions at once regardless of the level (see its own comment).
-    const extraAbove = this._forceShowEverything ? frets : Math.max(this._addNotesLevel, 0) * notesPerString;
-    const extraBelow = this._forceShowEverything ? frets : Math.max(-this._addNotesLevel, 0) * notesPerString;
+    // not two independent counters. Extends outward from THIS pattern's
+    // own base (whatever it's anchored to -- the key's root, or a mode's
+    // tonic), so Add Notes during the Modes lesson grows from the mode's
+    // own root, not the parent key's.
+    const extraAbove = Math.max(this._addNotesLevel, 0) * notesPerString;
+    const extraBelow = Math.max(-this._addNotesLevel, 0) * notesPerString;
     for (let s = 0; s < 6; s++) {
       const info = perString[s];
       if (!info) continue;
@@ -775,7 +858,6 @@ export class GTFretboard extends HTMLElement {
    * first, same as - undoes an above-batch.
    */
   addNotesAbove() {
-    this._forceShowEverything = false; // manual interaction takes over from showEveryOccurrence()
     this._addNotesLevel = Math.min(this._addNotesLevel + 1, this._maxAddNotesLevel());
     this.render();
   }
@@ -788,7 +870,6 @@ export class GTFretboard extends HTMLElement {
    * + extends it upward.
    */
   removeNotesAbove() {
-    this._forceShowEverything = false; // manual interaction takes over from showEveryOccurrence()
     this._addNotesLevel = Math.max(this._addNotesLevel - 1, -this._maxAddNotesLevel());
     this.render();
   }
@@ -799,26 +880,9 @@ export class GTFretboard extends HTMLElement {
     this.render();
   }
 
-  /**
-   * Forces every scale-tone occurrence across the whole neck to actually
-   * render (and so be pluckable/audible -- see #19), regardless of
-   * Notes/string or Add Notes state. Used by lessons whose notes may fall
-   * entirely outside the current pattern -- e.g. the Modes lesson plays a
-   * different tonic's octave, which the base notesPerString-capped walk
-   * has no reason to already include. Implemented as a temporary direct
-   * override of the extension amounts (bypassing the signed level
-   * entirely, since both directions need to be maxed out at once here),
-   * restored to normal on the next Add Notes interaction or Key change.
-   */
-  showEveryOccurrence() {
-    this._forceShowEverything = true;
-    this.render();
-  }
-
   /** Resets the Add Notes level back to 0 -- called whenever the root/key changes, since the whole pattern re-bases and a carried-over extension from the old key wouldn't mean anything. */
   _resetAddNotes() {
     this._addNotesLevel = 0;
-    this._forceShowEverything = false;
   }
 
   // Never shows (or allows clicking/playing) more than notesPerString dots

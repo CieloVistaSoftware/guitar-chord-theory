@@ -263,6 +263,7 @@ export function createLessonPlayer({ fretboard, diatonicChords, lessons, links =
   let chordDelayMs = 1100; // matches the modal's chord-delay slider's HTML default
   let currentLessonId = null; // so the modal's Replay/Loop buttons know what to run again
   let pendingLessonId = null; // picked in the dropdown but not yet Play-clicked
+  let currentRunPromise = Promise.resolve(); // the in-flight runLesson() call, if any -- awaited by a force-priority caller (see runLesson's force option)
 
   function setLoopButtonState() {
     const btn = document.querySelector('.gt-lesson-modal__loop');
@@ -297,54 +298,68 @@ export function createLessonPlayer({ fretboard, diatonicChords, lessons, links =
     if (pendingLessonId) runLesson(pendingLessonId);
   });
 
-  async function runLesson(id) {
-    if (playing) return;
+  // `force: true` -- for something that must take over playback right
+  // away (e.g. changing Mode mid-demo) instead of being silently ignored
+  // while a previous run is still going (the plain `if (playing) return;`
+  // below). Signals the in-flight fretboard playback to abandon its
+  // remaining notes (see gt-fretboard.js#stopPlayback) and waits for that
+  // run's own cleanup (re-enabling the select/Play button, etc.) to
+  // actually finish before starting the new one.
+  async function runLesson(id, { force = false } = {}) {
+    if (playing) {
+      if (!force) return;
+      fretboard.stopPlayback();
+      await currentRunPromise;
+    }
     const lesson = lessons.find((l) => l.id === id);
     if (!lesson) return;
 
-    currentLessonId = id;
-    if (playBtn) playBtn.disabled = true;
-    syncModalControls(lesson.modalControls);
-    playing = true;
-    selectEl.disabled = true;
-    pageTitleEl.style.display = 'none';
-    pageSubtitleEl.style.display = 'none';
+    currentRunPromise = (async () => {
+      currentLessonId = id;
+      if (playBtn) playBtn.disabled = true;
+      syncModalControls(lesson.modalControls);
+      playing = true;
+      selectEl.disabled = true;
+      pageTitleEl.style.display = 'none';
+      pageSubtitleEl.style.display = 'none';
 
-    setAudioEnabled(true);
+      setAudioEnabled(true);
 
-    // focusFrets can be a fixed [start, end], or a function(fretboard) that
-    // computes it fresh for whatever key is currently active -- e.g. the
-    // scale lesson always zooms to the 6th-string root, which lands on a
-    // different fret in every key.
-    const range = typeof lesson.focusFrets === 'function' ? lesson.focusFrets(fretboard) : lesson.focusFrets;
-    if (range) fretboard.focusFrets(range[0], range[1]);
-    else fretboard.clearFocus();
+      // focusFrets can be a fixed [start, end], or a function(fretboard) that
+      // computes it fresh for whatever key is currently active -- e.g. the
+      // scale lesson always zooms to the 6th-string root, which lands on a
+      // different fret in every key.
+      const range = typeof lesson.focusFrets === 'function' ? lesson.focusFrets(fretboard) : lesson.focusFrets;
+      if (range) fretboard.focusFrets(range[0], range[1]);
+      else fretboard.clearFocus();
 
-    await lesson.run({
-      fretboard,
-      diatonicChords,
-      highlightSection,
-      showModal,
-      getNoteDelayMs: () => noteDelayMs,
-      getNotesPerString,
-      getDirection,
-      getTimeSignature,
-      getChordDelayMs: () => chordDelayMs,
-    });
+      await lesson.run({
+        fretboard,
+        diatonicChords,
+        highlightSection,
+        showModal,
+        getNoteDelayMs: () => noteDelayMs,
+        getNotesPerString,
+        getDirection,
+        getTimeSignature,
+        getChordDelayMs: () => chordDelayMs,
+      });
 
-    playing = false;
-    selectEl.disabled = false;
-    if (playBtn) playBtn.disabled = false;
-    pageTitleEl.style.display = '';
-    pageSubtitleEl.style.display = '';
-    // Deliberately left showing the lesson that just played (not reset to
-    // the placeholder) -- the dropdown should read as "this is the current
-    // lesson," not blank out the moment playback ends.
+      playing = false;
+      selectEl.disabled = false;
+      if (playBtn) playBtn.disabled = false;
+      pageTitleEl.style.display = '';
+      pageSubtitleEl.style.display = '';
+      // Deliberately left showing the lesson that just played (not reset to
+      // the placeholder) -- the dropdown should read as "this is the current
+      // lesson," not blank out the moment playback ends.
 
-    // Loop mode: immediately start the same lesson again. The select stays
-    // disabled the whole time (set above), so there's no way to switch
-    // lessons mid-loop -- Loop has to be turned off first.
-    if (looping) runLesson(id);
+      // Loop mode: immediately start the same lesson again. The select stays
+      // disabled the whole time (set above), so there's no way to switch
+      // lessons mid-loop -- Loop has to be turned off first.
+      if (looping) runLesson(id);
+    })();
+    await currentRunPromise;
   }
 
   // Some browsers restore a <select>'s last-chosen value across a reload

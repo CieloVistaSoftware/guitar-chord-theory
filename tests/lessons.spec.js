@@ -122,9 +122,11 @@ test('changing Mode while the Modes lesson is active re-triggers the demo', asyn
   // above).
   await expect(page.locator('.gt-lesson-select')).toBeEnabled({ timeout: 15000 });
 
-  // Every scale-tone occurrence should already be on screen (showEveryOccurrence()) --
-  // confirms the "always show while Modes is active" half of #24.
-  await expect.poll(() => page.locator('.gt-dot').count()).toBeGreaterThan(20);
+  // The mode's own box pattern (6 strings x the current Notes/string,
+  // default 3) should be on screen -- not every occurrence across the
+  // whole neck, just this mode's own re-anchored walk (see
+  // gt-fretboard.js#setWalkAnchor).
+  await expect.poll(() => page.locator('.gt-dot').count()).toBe(18);
 
   // Changing Mode (the underlying <select> the stepper drives) must
   // re-arm playback exactly like clicking Replay does.
@@ -132,5 +134,5 @@ test('changing Mode while the Modes lesson is active re-triggers the demo', asyn
   await expect(page.locator('.gt-lesson-select')).toBeDisabled();
 
   await expect(page.locator('.gt-lesson-select')).toBeEnabled({ timeout: 15000 });
-  await expect.poll(() => page.locator('.gt-dot').count()).toBeGreaterThan(20);
+  await expect.poll(() => page.locator('.gt-dot').count()).toBe(18);
 });
