@@ -566,7 +566,13 @@ export class GTFretboard extends HTMLElement {
         if (openMidi + f > globalMaxShownMidi && intervalAt(rootPc, openPc, f)) above.add(`${s}-${f}`);
       }
     }
-    return { shown, all, below, above };
+    // 'below'/'above' extend the shown pattern in that direction rather than
+    // replacing it -- picking "above" should read as "everything already
+    // shown, plus keep going up to the top of the neck," not swap to a
+    // completely different, disconnected set of dots.
+    const belowPlusShown = new Set([...below, ...shown]);
+    const abovePlusShown = new Set([...above, ...shown]);
+    return { shown, all, below: belowPlusShown, above: abovePlusShown };
   }
 
   // Never shows (or allows clicking/playing) more than notesPerString dots

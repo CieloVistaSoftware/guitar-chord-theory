@@ -51,15 +51,15 @@
   color: var(--text-primary, #f9fafb);
 }
 
+/* Lives in the fretboard card's own header row now (alongside Numbers/Key/
+   Notes-per-string/etc), not stacked full-width under the Lessons dropdown
+   -- sized like its header siblings instead of the old standalone block. */
 .gt-lesson-card__play-btn {
-  display: block;
-  width: 100%;
-  margin-top: 0.5rem;
   border: 1px solid var(--primary, #6366f1);
   border-radius: 6px;
   background: var(--primary, #6366f1);
   color: #fff;
-  padding: 0.5rem 0.6rem;
+  padding: 0.5rem 0.9rem;
   min-height: 2.75rem; /* 44px touch target */
   font-size: 0.9rem;
   font-weight: 600;

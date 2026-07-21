@@ -73,3 +73,32 @@ test('header hides while a lesson plays and returns once it finishes', async ({ 
   await expect(title).toBeVisible({ timeout: 10000 });
   await expect(title).toHaveText(idleText);
 });
+
+// Issue #17 -- looping the Chords lesson advances the inversion (root ->
+// first -> second -> root) between passes; the report was that the FIRST
+// chord of the next pass didn't correctly reflect the new inversion.
+test('the first chord of the next Chords-lesson pass already reflects the advanced inversion', async ({ page }) => {
+  await page.evaluate(() => {
+    window.__firstPluckInversion = null;
+    document.addEventListener('gt:chord-note-plucked', () => {
+      if (window.__firstPluckInversion === null) {
+        window.__firstPluckInversion = document.querySelector('gt-diatonic-chords')._inversion;
+      }
+    });
+  });
+
+  await page.locator('.gt-lesson-select').selectOption('chords');
+  await page.locator('.gt-lesson-card__play-btn').click();
+  // Speed the pass along so the test doesn't wait on the default 1.1s/chord tempo.
+  await page.locator('.gt-lesson-modal__chord-delay-slider').fill('500');
+
+  // Wait for the first pass (root position) to finish -- the select
+  // re-enables once playing stops.
+  await expect(page.locator('.gt-lesson-select')).toBeEnabled({ timeout: 15000 });
+  await expect(page.locator('gt-fretboard')).toHaveJSProperty('_inversion', 'first');
+
+  await page.evaluate(() => { window.__firstPluckInversion = null; });
+  await page.locator('.gt-lesson-modal__replay').click();
+
+  await expect.poll(() => page.evaluate(() => window.__firstPluckInversion), { timeout: 8000 }).toBe('first');
+});
