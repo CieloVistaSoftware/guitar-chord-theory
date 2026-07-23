@@ -214,6 +214,44 @@ test('the Modes lesson strikes that mode\'s own chord once per measure, in step 
   await expect(page.locator('#beat-counter-value')).toHaveText('4 / 4');
 });
 
+// The Measure counter (added alongside the Beat counter, issue #36) is a
+// running 1-indexed count of how many beatsPerMeasure cycles have completed
+// -- it climbs across the WHOLE demo (never resets mid-demo the way Beat
+// does), incrementing exactly when Beat wraps back to 1.
+test('the Measure counter climbs once per measure in step with the Beat counter, across a multi-measure demo', async ({ page }) => {
+  await page.evaluate(() => {
+    window.__beats = [];
+    window.__measures = [];
+    document.querySelector('gt-fretboard').addEventListener('gt:beat-changed', (e) => {
+      window.__beats.push(e.detail.beat);
+      window.__measures.push(e.detail.measure);
+    });
+  });
+
+  await page.locator('.gt-lesson-select').selectOption('modes');
+  await page.locator('.gt-lesson-modal__play').click();
+
+  // Same 5-measure, 20-beat 4/4 demo as the sibling Beat-counter test above
+  // (default Notes/string = 3, Ionian on key C).
+  await expect(page.locator('.gt-lesson-select')).toBeEnabled({ timeout: 20000 });
+
+  const beats = await page.evaluate(() => window.__beats);
+  const measures = await page.evaluate(() => window.__measures);
+  expect(beats).toEqual([1, 2, 3, 4, 1, 2, 3, 4, 1, 2, 3, 4, 1, 2, 3, 4, 1, 2, 3, 4]);
+  // Measure bumps exactly when beat wraps back to 1 -- never resets, always
+  // increasing, 4 beats per measure number, 5 measures total.
+  expect(measures).toEqual([1, 1, 1, 1, 2, 2, 2, 2, 3, 3, 3, 3, 4, 4, 4, 4, 5, 5, 5, 5]);
+
+  // Measure counter shows the last measure reached once the demo settles.
+  await expect(page.locator('#measure-counter-value')).toHaveText('5');
+
+  // Stop resets both counters back to idle.
+  await page.locator('.gt-lesson-modal__play').click();
+  await page.locator('.gt-lesson-modal__stop').click();
+  await expect(page.locator('#measure-counter-value')).toHaveText('–');
+  await expect(page.locator('#beat-counter-value')).toHaveText('–');
+});
+
 // The note sequence always finishes its last measure -- by continuing
 // further up the neck with genuinely new, higher notes (gt:note-played),
 // never by wrapping around to repeat an earlier one. Those extra notes

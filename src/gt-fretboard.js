@@ -493,10 +493,11 @@ export class GTFretboard extends HTMLElement {
    * pulses), etc. Purely a metronome-style accent overlaid on the same
    * note sequence -- it never changes which notes play, only how beat 1
    * of each group sounds/looks. Every note dispatches gt:beat-changed
-   * (detail: { beat, beatsPerMeasure }, beat cycling 1..beatsPerMeasure)
-   * so the header's Beat counter (index.html) can follow along for ANY
-   * lesson using this, not just the ones that also care about beat 1
-   * specifically.
+   * (detail: { beat, beatsPerMeasure, measure }, beat cycling
+   * 1..beatsPerMeasure, measure a running 1-indexed count that bumps every
+   * time beat wraps back to 1) so the header's Beat and Measure counters
+   * (index.html) can follow along for ANY lesson using this, not just the
+   * ones that also care about beat 1 specifically.
    *
    * `onBeatOne`, if given, fires only on beat 1 of every measure, with
    * that measure's actual duration in seconds (beatsPerMeasure x the
@@ -631,11 +632,19 @@ export class GTFretboard extends HTMLElement {
       : resolveDirection() === 'both' ? [...dedupedSequence, ...[...dedupedSequence].reverse().slice(1)]
       : dedupedSequence;
 
+    // Running measure count -- 1-indexed, bumped every time beatNumber wraps
+    // back to 1 (including the very first note, which is always measure 1
+    // beat 1). Tracked by counting beat-1 occurrences rather than by
+    // Math.floor(i / beats) so it stays correct even if beatsPerMeasure is a
+    // live-getter that changes mid-demo (the Time signature select can be
+    // dragged while a demo is playing -- see resolveBeats above).
+    let measureNumber = 0;
     for (let i = 0; i < toPlay.length; i++) {
       if (this._playbackGen !== myGen) return; // superseded -- abandon the rest of this run
       const beats = resolveBeats();
       const beatNumber = (i % beats) + 1; // 1-indexed, cycling 1..beats
-      this.dispatchEvent(new CustomEvent('gt:beat-changed', { bubbles: true, detail: { beat: beatNumber, beatsPerMeasure: beats } }));
+      if (beatNumber === 1) measureNumber++;
+      this.dispatchEvent(new CustomEvent('gt:beat-changed', { bubbles: true, detail: { beat: beatNumber, beatsPerMeasure: beats, measure: measureNumber } }));
       if (beatNumber === 1) onBeatOne?.((beats * resolveDelay()) / 1000);
       await this._playAndWait(toPlay[i], delayMs, beatNumber === 1, paddingMidis.has(toPlay[i]));
     }

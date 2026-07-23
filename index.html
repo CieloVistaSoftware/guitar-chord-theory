@@ -358,7 +358,7 @@
               <option value="5">5/16</option>
               <option value="7">7/16</option>
             </select>
-            <span class="gt-beat-counter">Beat <strong id="beat-counter-value">–</strong></span>
+            <span class="gt-beat-counter">Measure <strong id="measure-counter-value">–</strong> · Beat <strong id="beat-counter-value">–</strong></span>
           </span>
           <div class="gt-lesson-modal__actions">
             <button type="button" class="gt-lesson-modal__play gt-lesson-dismiss" disabled>▶ Play</button>
@@ -565,17 +565,22 @@
     });
     document.addEventListener('gt:chord-note-plucked', (e) => fretboard.pulseNote(e.detail.midi));
 
-    // The Beat counter next to Time signature -- follows any playScaleDemo
-    // run (major-scale, Modes, or just playing the current view), cycling
-    // 1..beatsPerMeasure and starting over each measure until the whole
-    // demo finishes. Reset to the idle "–" on Stop/Dismiss so it doesn't
-    // linger on whatever beat the last run happened to end on.
+    // The Beat/Measure counters next to Time signature -- follow any
+    // playScaleDemo run (major-scale, Modes, or just playing the current
+    // view). Beat cycles 1..beatsPerMeasure, starting over each measure;
+    // Measure is a running 1-indexed count of how many of those cycles have
+    // completed (bumped by gt-fretboard.js whenever beat wraps back to 1),
+    // so it keeps climbing across the whole demo instead of resetting.
+    // Reset both to the idle "–" on Stop/Dismiss so they don't linger on
+    // whatever beat/measure the last run happened to end on.
     {
       const beatValueEl = document.getElementById('beat-counter-value');
+      const measureValueEl = document.getElementById('measure-counter-value');
       fretboard.addEventListener('gt:beat-changed', (e) => {
         beatValueEl.textContent = `${e.detail.beat} / ${e.detail.beatsPerMeasure}`;
+        measureValueEl.textContent = `${e.detail.measure}`;
       });
-      const resetBeatCounter = () => { beatValueEl.textContent = '–'; };
+      const resetBeatCounter = () => { beatValueEl.textContent = '–'; measureValueEl.textContent = '–'; };
       document.querySelector('.gt-lesson-modal__stop')?.addEventListener('click', resetBeatCounter);
       document.querySelector('.gt-lesson-modal__dismiss')?.addEventListener('click', resetBeatCounter);
     }
