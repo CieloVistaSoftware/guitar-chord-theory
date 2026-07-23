@@ -1,0 +1,207 @@
+<!DOCTYPE html>
+<html lang="en" data-theme="dark">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Narration Editor — Guitar Chord Theory</title>
+  <link rel="icon" type="image/svg+xml" href="src/favicon.svg">
+
+  <link rel="stylesheet" href="node_modules/wb-starter/src/styles/normalize.css">
+  <link rel="stylesheet" href="node_modules/wb-starter/src/styles/themes.css">
+  <link rel="stylesheet" href="node_modules/wb-starter/src/styles/site.css">
+  <link rel="stylesheet" href="node_modules/wb-starter/src/styles/safari-fixes.css">
+  <style>
+    body {
+      max-width: 900px;
+      margin: 0 auto;
+      padding: 2rem 1.5rem 4rem;
+      background: var(--bg-primary, #111827);
+      color: var(--text-primary, #f9fafb);
+      font-family: system-ui, sans-serif;
+    }
+    h1 { font-size: 1.75rem; margin-bottom: 0.25rem; }
+    .subtitle { color: var(--text-secondary, #9ca3af); margin-top: 0; margin-bottom: 1rem; }
+    .gt-nav-links {
+      display: flex;
+      gap: 1rem;
+      margin-bottom: 1rem;
+    }
+    .gt-nav-link {
+      display: inline-block;
+      color: var(--primary, #6366f1);
+      font-size: 0.9rem;
+      font-weight: 600;
+      text-decoration: none;
+    }
+    .gt-nav-link:hover {
+      text-decoration: underline;
+    }
+    /* Every narration.json entry supports {key} -- substituted with the
+       current Key selector's value at speak-time (lesson-player.js) or
+       with "C" for this page's own Preview button. Called out once, up
+       top, rather than repeated per card. */
+    .ne-note {
+      border: 1px solid var(--border-color, #4b5563);
+      border-radius: var(--radius-md, 8px);
+      padding: 0.75rem 1rem;
+      margin-bottom: 1.5rem;
+      font-size: 0.9rem;
+      color: var(--text-secondary, #9ca3af);
+    }
+    .ne-note code {
+      color: var(--text-primary, #f9fafb);
+      background: var(--bg-secondary, #1f2937);
+      border-radius: 4px;
+      padding: 0.1rem 0.35rem;
+    }
+    .ne-toolbar {
+      display: flex;
+      gap: 0.75rem;
+      margin-bottom: 1.5rem;
+    }
+    .ne-btn {
+      border: 1px solid var(--border-color, #4b5563);
+      border-radius: 6px;
+      background: var(--bg-secondary, #1f2937);
+      color: var(--text-primary, #f9fafb);
+      padding: 0.5rem 1rem;
+      font-family: inherit;
+      font-size: 0.9rem;
+      font-weight: 600;
+      cursor: pointer;
+    }
+    .ne-btn:hover {
+      background: var(--primary, #6366f1);
+      border-color: var(--primary, #6366f1);
+    }
+    .ne-btn--primary {
+      background: var(--primary, #6366f1);
+      border-color: var(--primary, #6366f1);
+    }
+    .ne-status {
+      align-self: center;
+      font-size: 0.85rem;
+      color: var(--text-secondary, #9ca3af);
+    }
+    .ne-card {
+      border: 1px solid var(--border-color, #4b5563);
+      border-radius: var(--radius-md, 8px);
+      padding: 1rem;
+      margin-bottom: 1.25rem;
+      background: var(--bg-secondary, #1f2937);
+    }
+    .ne-card__header {
+      display: flex;
+      align-items: center;
+      gap: 0.75rem;
+      margin-bottom: 0.5rem;
+    }
+    .ne-title {
+      flex: 1;
+      border: 1px solid var(--border-color, #4b5563);
+      border-radius: 6px;
+      background: var(--bg-primary, #111827);
+      color: var(--text-primary, #f9fafb);
+      padding: 0.4rem 0.6rem;
+      font-size: 1rem;
+      font-weight: 700;
+    }
+    .ne-preview-btn {
+      border: 1px solid var(--border-color, #4b5563);
+      border-radius: 6px;
+      background: transparent;
+      color: var(--text-primary, #f9fafb);
+      padding: 0.4rem 0.75rem;
+      font-family: inherit;
+      font-size: 0.85rem;
+      font-weight: 600;
+      cursor: pointer;
+      white-space: nowrap;
+    }
+    .ne-preview-btn:hover {
+      background: var(--primary, #6366f1);
+      border-color: var(--primary, #6366f1);
+    }
+    .ne-used-in {
+      font-size: 0.8rem;
+      color: var(--text-secondary, #9ca3af);
+      margin-bottom: 0.5rem;
+      font-style: italic;
+    }
+    .ne-text {
+      width: 100%;
+      box-sizing: border-box;
+      border: 1px solid var(--border-color, #4b5563);
+      border-radius: 6px;
+      background: var(--bg-primary, #111827);
+      color: var(--text-primary, #f9fafb);
+      padding: 0.6rem 0.75rem;
+      font-family: inherit;
+      font-size: 0.9rem;
+      line-height: 1.5;
+      resize: vertical;
+    }
+  </style>
+</head>
+<body>
+  <h1>Narration Editor</h1>
+  <p class="subtitle">Full control over every spoken lesson narration -- edit, preview, and export.</p>
+  <div class="gt-nav-links">
+    <a href="index.html" class="gt-nav-link">← Back to the lesson</a>
+  </div>
+
+  <div class="ne-note">
+    Every entry supports a <code>{key}</code> placeholder, filled in with whatever the Key selector
+    is set to when the lesson actually speaks (Preview below always uses <code>C</code>). This is a
+    static site with no backend, so editing here doesn't save automatically -- click
+    <strong>Download narration.json</strong> when you're done and commit the downloaded file over
+    <code>narration.json</code> in the repo.
+  </div>
+
+  <div class="ne-toolbar">
+    <button type="button" class="ne-btn ne-btn--primary" id="ne-download">⬇ Download narration.json</button>
+    <button type="button" class="ne-btn" id="ne-copy">⧉ Copy JSON to clipboard</button>
+    <span class="ne-status" id="ne-status"></span>
+  </div>
+
+  <div id="ne-container"></div>
+
+  <script type="module">
+    import { loadNarrationEntries } from './src/narration-data.js';
+    import { renderNarrationEditor } from './src/narration-editor.js';
+
+    const container = document.getElementById('ne-container');
+    const statusEl = document.getElementById('ne-status');
+
+    const entries = await loadNarrationEntries();
+    if (entries.length === 0) {
+      container.textContent = 'narration.json not found or empty.';
+    }
+    const editor = renderNarrationEditor(container, entries);
+
+    function buildJson() {
+      return JSON.stringify({ narrations: editor.getEntries() }, null, 2) + '\n';
+    }
+
+    document.getElementById('ne-download').addEventListener('click', () => {
+      const blob = new Blob([buildJson()], { type: 'application/json' });
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      a.href = url;
+      a.download = 'narration.json';
+      a.click();
+      URL.revokeObjectURL(url);
+      statusEl.textContent = 'Downloaded -- replace narration.json with this file and commit.';
+    });
+
+    document.getElementById('ne-copy').addEventListener('click', async () => {
+      try {
+        await navigator.clipboard.writeText(buildJson());
+        statusEl.textContent = 'Copied to clipboard.';
+      } catch {
+        statusEl.textContent = 'Clipboard access denied -- use Download instead.';
+      }
+    });
+  </script>
+</body>
+</html>

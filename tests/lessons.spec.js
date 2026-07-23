@@ -38,6 +38,32 @@ test('lessons dropdown is populated; picking a lesson arms Play but does not aut
   await expect(page.locator('#page-title')).toBeHidden();
 });
 
+// Switching from one lesson to another must actually replace the modal's
+// narration content with the newly-picked lesson's own text -- not leave
+// the previous lesson's copy sitting there, and not silently merge the two.
+test('switching lessons replaces the modal narration with the new lesson\'s own text', async ({ page }) => {
+  const select = page.locator('.gt-lesson-select');
+  const playBtn = page.locator('.gt-lesson-modal__play');
+  const stopBtn = page.locator('.gt-lesson-modal__stop');
+  const content = page.locator('.gt-lesson-modal__content');
+
+  await select.selectOption('what-is-a-chord');
+  await playBtn.click();
+  await expect(page.locator('.gt-lesson-modal')).toBeVisible();
+  await expect(content).toContainText('needs at least 3 notes');
+
+  // Stop before switching -- the select is disabled while a lesson plays
+  // (see the test above), so a new one can't be picked until this one halts.
+  await stopBtn.click();
+  await expect(select).toBeEnabled();
+
+  await select.selectOption('modes');
+  await playBtn.click();
+  await expect(content).toContainText('7 modes of the major scale');
+  // The previous lesson's own copy must be gone, not just appended alongside.
+  await expect(content).not.toContainText('needs at least 3 notes');
+});
+
 // Issue #4 -- Fold Chord spellings reference / Songs nav links into the
 // Lessons dropdown instead of separate page links.
 test('nav links are folded into the lessons dropdown as a second group', async ({ page }) => {
@@ -129,8 +155,14 @@ test('changing Mode while the Modes lesson is active re-triggers the demo', asyn
   // default 3, +1 for the 2nd string's always-on bonus resolving-root
   // note -- see SECOND_STRING_INDEX) should be on screen -- not every
   // occurrence across the whole neck, just this mode's own re-anchored
-  // walk (see gt-fretboard.js#setWalkAnchor).
-  await expect.poll(() => page.locator('.gt-dot').count()).toBe(19);
+  // walk (see gt-fretboard.js#setWalkAnchor). That base 19 then gets
+  // padded further to a full measure boundary by _scaleWalkPositions' own
+  // measure-completion padding (counts distinct PITCHES, not physical
+  // positions, so the padded total varies with how many positions happen
+  // to overlap in pitch across strings) -- read the true count live
+  // rather than hardcoding a number only right before any mode ever ran.
+  await expect.poll(() => page.locator('.gt-dot').count()).toBeGreaterThanOrEqual(19);
+  const baseline = await page.locator('.gt-dot').count();
 
   // Changing Mode (the underlying <select> the stepper drives) must
   // re-arm playback exactly like clicking Replay does.
@@ -138,7 +170,9 @@ test('changing Mode while the Modes lesson is active re-triggers the demo', asyn
   await expect(page.locator('.gt-lesson-select')).toBeDisabled();
 
   await expect(page.locator('.gt-lesson-select')).toBeEnabled({ timeout: 15000 });
-  await expect.poll(() => page.locator('.gt-dot').count()).toBe(19);
+  // Re-anchored to Lydian's own tonic, but still the same shape -- same
+  // total dot count as the baseline mode's own pattern produced.
+  await expect.poll(() => page.locator('.gt-dot').count()).toBe(baseline);
 });
 
 // The Modes lesson strikes that mode's own diatonic triad (harmonizeMajorScale

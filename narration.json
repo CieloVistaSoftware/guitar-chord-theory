@@ -1,0 +1,28 @@
+{
+  "narrations": [
+    {
+      "id": "what-is-a-chord",
+      "title": "What is a chord?",
+      "usedIn": "index.html #what-is-a-chord -- the \"What is a chord?\" lesson",
+      "text": "What is a chord? A chord needs at least 3 notes. A major chord is spelled 1 - 3 - 5 (root, major 3rd, perfect 5th). Look at the fretboard below -- that's a C major chord, in open position. The low E string is muted, so it's not part of the shape at all. From there: the A string, 3rd fret is marked 1 in red -- that's the root, C. The D string, 2nd fret is marked 3 in yellow -- the major 3rd, E. The G string rings open, shown as a plain O -- that's the 5th, G. The B string, 1st fret circles back to 1 -- the root, C, again. And the high E string rings open too, another plain O -- another 3rd, E. Five strings, five notes, but only three different letters -- C, E, and G -- each one just repeated so there's a note ringing on every string you strum, not only three."
+    },
+    {
+      "id": "scale-lesson",
+      "title": "The major scale, string by string",
+      "usedIn": "index.html #scale-lesson -- the \"The major scale, string by string\" lesson",
+      "text": "The {key} major scale, string by string. The whole {key} major scale laid out across all six strings, labeled 1-7 by scale degree. Click any note to hear it, or pick the Chords lesson from the list above to see these same scale degrees build into all seven chords in the key."
+    },
+    {
+      "id": "chords-lesson",
+      "title": "All the chords in the key",
+      "usedIn": "index.html #chords-lesson -- the \"Chords\" lesson (heading only; the how-these-chords-are-built info tooltip is not narrated)",
+      "text": "All the chords in the key of {key}."
+    },
+    {
+      "id": "modes-lesson",
+      "title": "The 7 modes of the major scale",
+      "usedIn": "index.html #modes-lesson -- the \"The 7 modes of the major scale\" lesson",
+      "text": "The 7 modes of the major scale. A mode isn't a different set of notes -- it's the exact same major scale, just starting (and resolving) on a different one of its own 7 degrees instead of the 1st. C major starting on its 2nd degree (D) is D Dorian; starting on its 6th degree (A) is A Aeolian -- same notes, different \"home.\" Pick a mode below and it plays that same scale, one octave, starting and ending on that mode's own tonic -- listen for how the character changes even though every note still belongs to the current key."
+    }
+  ]
+}

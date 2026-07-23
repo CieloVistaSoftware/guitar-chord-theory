@@ -18,27 +18,38 @@
  */
 import { setAudioEnabled, toggleMuted, isMuted } from './audio.js';
 import { readPersistedBoolean, writePersistedBoolean } from './gt-persist.js';
+import { loadNarrationData, getNarrationText } from './narration-data.js';
 
 const HIGHLIGHT_CLASS = 'gt-lesson-highlight';
 
+loadNarrationData(); // kick off the fetch early -- resolves well before the first Play in practice
+
 // AI voice narration (Web Speech API -- no backend/API key needed, works
-// offline, fits the no-build static-site model). The lesson's OWN written
-// copy (the same text shown in the modal) IS the script -- speaking
-// whatever's actually on screen instead of a separate, easy-to-drift-out-
-// of-sync narration text maintained in two places. Respects the existing
-// Mute toggle (one mute silences both audio and voice, matching what a
-// user expects "mute" to mean); cancel() first so replaying/switching
-// lessons doesn't queue overlapping utterances.
-function speakNarration(contentEl) {
+// offline, fits the no-build static-site model). The text spoken is
+// data/narration.json's entry for this section id (edited via
+// narration-editor.html), with {key} filled in from the Key selector --
+// falling back to the lesson's own on-screen copy if narration.json
+// hasn't loaded yet or has no entry for this section, so a missing/stale
+// narration.json degrades gracefully instead of going silent. Respects the
+// existing Mute toggle (one mute silences both audio and voice, matching
+// what a user expects "mute" to mean); cancel() first so replaying/
+// switching lessons doesn't queue overlapping utterances.
+function speakNarration(contentEl, sectionId) {
   if (!('speechSynthesis' in window)) return;
   window.speechSynthesis.cancel();
   if (isMuted() || narrationMuted) return;
 
-  const clone = contentEl.cloneNode(true);
-  // The chords-lesson heading nests an (i) info button whose tooltip text
-  // is only meant to be read on demand, not narrated as part of the intro.
-  clone.querySelectorAll('.gt-info-tooltip, .gt-info-btn').forEach((el) => el.remove());
-  const text = clone.textContent.replace(/\s+/g, ' ').trim();
+  const currentKey = document.getElementById('key-select')?.value;
+  const fromNarrationData = sectionId ? getNarrationText(sectionId, currentKey) : null;
+
+  let text = fromNarrationData;
+  if (!text) {
+    const clone = contentEl.cloneNode(true);
+    // The chords-lesson heading nests an (i) info button whose tooltip text
+    // is only meant to be read on demand, not narrated as part of the intro.
+    clone.querySelectorAll('.gt-info-tooltip, .gt-info-btn').forEach((el) => el.remove());
+    text = clone.textContent.replace(/\s+/g, ' ').trim();
+  }
   if (!text) return;
 
   window.speechSynthesis.speak(new SpeechSynthesisUtterance(text));
@@ -132,7 +143,7 @@ async function showModal(section, { scrollToFretboard = true } = {}) {
     collapseBtn.setAttribute('aria-pressed', 'true');
     collapseBtn.textContent = '▼ Expand';
   }
-  speakNarration(content);
+  speakNarration(content, section.id);
 }
 
 function wireModal({ onPlay, onStop, onToggleLoop, onDismiss } = {}) {
@@ -553,11 +564,15 @@ export function createLessonPlayer({ fretboard, diatonicChords, lessons, links =
   // Resume whichever real lesson was running the last time this tab
   // loaded (see runLesson's persistence above) -- most useful right after
   // a page reload mid-development, but works the same for any reload. A
-  // brand new session (nothing persisted yet) defaults to the Chords
-  // lesson -- harmonizing the whole key is the entry-level starting point
-  // for teaching chords, not the plain scale view.
+  // brand new session (nothing persisted yet) stays idle -- auto-playing a
+  // lesson (audio + spoken narration + a chord shape taking over the big
+  // fretboard) the instant the page loads, before the reader has done
+  // anything, contradicts Numbers/Key/Notes-per-string/etc.'s own "always
+  // visible, since these drive the fretboard" design (gt-fretboard.css) and
+  // was confirmed live to be the root cause of 6 failing tests across
+  // lessons.spec.js and fretboard.spec.js (issues #33, #34) -- reverted.
   {
-    let resumeId = 'chords';
+    let resumeId = null;
     try {
       const stored = sessionStorage.getItem(CURRENT_LESSON_STORAGE_KEY);
       if (stored) resumeId = stored;

@@ -54,11 +54,16 @@ test('the edit-status dot reflects dev-status.json', async ({ page }) => {
     await page.goto('/');
     const dot = page.locator('#edit-status-dot');
 
+    // index.html polls dev-status.json every 3000ms (issue #31-adjacent --
+    // slowed from 1000ms to cut request-log noise); worst case, a write
+    // here lands just after a poll fires, so the next one doesn't pick it
+    // up until nearly a full interval later. Timeout must clear that with
+    // real margin, not sit right at the interval itself.
     fs.writeFileSync(statusPath, JSON.stringify({ editing: true }));
-    await expect(dot).toHaveClass(/gt-edit-status-dot--editing/, { timeout: 3000 });
+    await expect(dot).toHaveClass(/gt-edit-status-dot--editing/, { timeout: 4500 });
 
     fs.writeFileSync(statusPath, JSON.stringify({ editing: false }));
-    await expect(dot).toHaveClass(/gt-edit-status-dot--ready/, { timeout: 3000 });
+    await expect(dot).toHaveClass(/gt-edit-status-dot--ready/, { timeout: 4500 });
   } finally {
     fs.writeFileSync(statusPath, original);
   }
