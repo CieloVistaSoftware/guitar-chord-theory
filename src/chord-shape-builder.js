@@ -4,7 +4,7 @@
  * both <gt-diatonic-chords> (the lesson page) and the Songs page, so the
  * two never duplicate this math.
  */
-import { STANDARD_TUNING, STANDARD_TUNING_MIDI, noteNameToPitchClass, pitchClassName } from './theory.js';
+import { STANDARD_TUNING, STANDARD_TUNING_MIDI, noteNameToPitchClass, pitchClassName, spellFormulaNotes } from './theory.js';
 import { CHORD_SHAPES } from './chord-shapes.js';
 import { CHORD_INVERSIONS } from './chord-inversions.js';
 import { generateChordShape } from './chord-shape-generator.js';
@@ -27,7 +27,7 @@ export function getChordShape(c, inversion) {
   if (hardcoded) return hardcoded;
   const [rootPc, thirdPc, fifthPc] = c.notes.map(noteNameToPitchClass);
   const bassPc = inversion === 'root' ? rootPc : inversion === 'first' ? thirdPc : fifthPc;
-  return generateChordShape(rootPc, thirdPc, fifthPc, bassPc);
+  return generateChordShape([rootPc, thirdPc, fifthPc], bassPc);
 }
 
 /**
@@ -84,6 +84,83 @@ export function buildChordShapeEventDetail(c, showNoteNames) {
   return { name: c.chordName, positionsByInversion, inversionSummary: buildInversionSummary(c), showNoteNames, degree: c.degree };
 }
 
+// One color per chord-tone role in formula order (root first) -- reused
+// through every CHORD_FORMULAS entry up to a 13th chord's 6 notes, roughly
+// matching the reference palette the scale-degree dots already use.
+const FORMULA_TONE_COLORS = ['#ef4444', '#eab308', '#06b6d4', '#a855f7', '#22c55e', '#6366f1'];
+
+/**
+ * Root-position-only fretboard positions for ANY CHORD_FORMULAS entry
+ * (major/minor/diminished/augmented/sus, or any 7th/9th/13th chord) on any
+ * root -- unlike buildShapePositions/getChordShape above (which only know
+ * triads and their 3 hand-picked inversions, built from harmonizeMajorScale
+ * diatonic chords), this covers every chord type this app knows, always as
+ * root position, searching for the root starting at `startString` (see
+ * gt-fretboard.js#_currentStartingStringIndex) -- the root lands there or
+ * on whichever string above it first sounds it, the same "search from here,
+ * never below" convention the scale-walk's Starting string control uses.
+ * Used by the "What is a chord?" lesson's Chord type selector.
+ */
+export function buildFormulaChordPositions(rootPc, rootName, formulaEntry, showNoteNames, startString = 0) {
+  const tonePcs = formulaEntry.semitones.map((s) => (rootPc + s) % 12);
+  const pcToIndex = new Map(tonePcs.map((pc, i) => [pc, i]));
+  const names = spellFormulaNotes(rootPc, rootName, formulaEntry);
+  const shape = generateChordShape(tonePcs, tonePcs[0], startString);
+  if (!shape) return [];
+  return shape
+    .map((fret, s) => {
+      if (fret === null) return null;
+      const pc = (STANDARD_TUNING[s] + fret) % 12;
+      const i = pcToIndex.get(pc);
+      if (i === undefined) return null;
+      return {
+        string: s,
+        fret,
+        label: showNoteNames ? names[i] : formulaEntry.formula[i],
+        color: FORMULA_TONE_COLORS[i % FORMULA_TONE_COLORS.length],
+      };
+    })
+    .filter(Boolean);
+}
+
+// Root/3rd/5th/7th/9th/13th, in the fixed order harmonizeMajorScale's own
+// EXTENSION_STEPS stacks them -- used for degree labels on an extended
+// diatonic chord (see buildExtendedChordPositions), since a diatonic 9th/
+// 13th on some degrees (e.g. a half-diminished 9th on vii) has no single
+// named CHORD_FORMULAS entry to pull interval symbols from.
+const DIATONIC_DEGREE_LABELS = ['1', '3', '5', '7', '9', '13'];
+
+/**
+ * Root-position-only fretboard positions for an extended (7th/9th/13th)
+ * DIATONIC chord -- i.e. one of harmonizeMajorScale(rootPc, extension)'s
+ * own chords, which (unlike buildFormulaChordPositions above) isn't
+ * necessarily a single named CHORD_FORMULAS entry (a diatonic 9th/13th on
+ * the vii degree, for instance, is half-diminished plus extensions that
+ * have no standard chord name). Works straight off `c.notes` -- whatever
+ * harmonizeMajorScale already spelled out -- rather than a formula's own
+ * semitones/labels. Used by the Chords lesson's Chord color selector.
+ */
+export function buildExtendedChordPositions(c, showNoteNames, startString = 0) {
+  const tonePcs = c.notes.map(noteNameToPitchClass);
+  const pcToIndex = new Map(tonePcs.map((pc, i) => [pc, i]));
+  const shape = generateChordShape(tonePcs, tonePcs[0], startString);
+  if (!shape) return [];
+  return shape
+    .map((fret, s) => {
+      if (fret === null) return null;
+      const pc = (STANDARD_TUNING[s] + fret) % 12;
+      const i = pcToIndex.get(pc);
+      if (i === undefined) return null;
+      return {
+        string: s,
+        fret,
+        label: showNoteNames ? c.notes[i] : (DIATONIC_DEGREE_LABELS[i] ?? '?'),
+        color: FORMULA_TONE_COLORS[i % FORMULA_TONE_COLORS.length],
+      };
+    })
+    .filter(Boolean);
+}
+
 /**
  * Strum c's shape in the given inversion (default root position). `onNote`,
  * if given, fires (midi) for each note at the exact moment it's plucked --
@@ -115,4 +192,18 @@ export function playChordAudio(c, inversion = 'root', onNote, strumSeconds = 0.0
     .filter((m) => m !== null)
     .sort((a, b) => a - b);
   playChordMidi(midiNotes, strumSeconds, onNote, noteDuration, gainScale);
+}
+
+/**
+ * Strums an already-built position list (see buildFormulaChordPositions
+ * above) -- unlike playChordAudio, which re-derives a shape from
+ * getChordShape's fixed triad inversions, this just plays exactly the
+ * frets positions already settled on, since arbitrary CHORD_FORMULAS
+ * chords have no such fixed-inversion shape to re-derive from.
+ */
+export function playFormulaChordAudio(positions, onNote, strumSeconds = 0.06) {
+  const midiNotes = positions
+    .map(({ string: s, fret: f }) => STANDARD_TUNING_MIDI[s] + f)
+    .sort((a, b) => a - b);
+  playChordMidi(midiNotes, strumSeconds, onNote);
 }

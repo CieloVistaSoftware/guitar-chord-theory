@@ -17,6 +17,7 @@
  * The h1/subtitle come back once the lesson finishes.
  */
 import { setAudioEnabled, toggleMuted, isMuted } from './audio.js';
+import { readPersistedBoolean, writePersistedBoolean } from './gt-persist.js';
 
 const HIGHLIGHT_CLASS = 'gt-lesson-highlight';
 
@@ -52,12 +53,19 @@ let lastSection = null;
 // Separate from the main Mute button (audio.js's isMuted(), which silences
 // note/chord playback) -- someone may want to hear the notes without the
 // spoken narration, or vice versa, so these are two independent toggles
-// rather than one mute controlling both. Starts muted under Playwright (or
-// any other WebDriver-based tool) -- navigator.webdriver is the standard
-// flag those set, so automated test runs never invoke real speech
-// synthesis; a human visiting the page normally still gets narration by
-// default.
-let narrationMuted = navigator.webdriver === true;
+// rather than one mute controlling both. Whatever was left from a
+// previous reload (see wireNarrationMuteButton) wins if there is one;
+// otherwise starts muted under Playwright (or any other WebDriver-based
+// tool -- navigator.webdriver is the standard flag those set) so
+// automated test runs never invoke real speech synthesis, while a human
+// visiting the page for the first time still gets narration by default.
+// Exported so gt-fretboard.js's pre-demo "and a one" count-off can check the
+// exact same live mute state, without a shared in-memory variable -- both
+// read sessionStorage fresh each time, so a toggle here takes effect on the
+// very next Play even though the two modules don't otherwise talk to each
+// other.
+export const NARRATION_MUTED_STORAGE_KEY = 'gt-narration-muted';
+let narrationMuted = readPersistedBoolean(NARRATION_MUTED_STORAGE_KEY, navigator.webdriver === true);
 
 function wait(ms) {
   return new Promise((resolve) => setTimeout(resolve, ms));
@@ -152,17 +160,30 @@ function wireModal({ onPlay, onStop, onToggleLoop, onDismiss } = {}) {
   wireCollapseButton();
 }
 
-// Collapses the modal down to just its controls (Note speed, Notes/string,
-// Play/Stop/Loop/Mute/Dismiss), hiding the narration text -- clicking the same
-// button again reveals it. showModal() always resets to collapsed when a
-// lesson starts (narration hidden by default, reveal on request); this
-// toggle just flips that state for as long as the modal stays up.
+// Two independent collapsed states share this one button/toggle:
+//  - is-collapsed (narration text only) -- set automatically by showModal()
+//    every time a lesson starts, and by the Dismiss handler, so the header
+//    controls (Key, Notes/string, Fret markers, Fullscreen, ...) that DRIVE
+//    the fretboard stay usable without the user ever touching this button.
+//  - is-fully-collapsed (issue #29 -- everything except the bottom
+//    play-controls row) -- set ONLY by an explicit click on this button, so
+//    it never fires just because a lesson auto-started.
+// A manual click is a simple "is anything hidden right now?" toggle: if
+// either class is already set (e.g. right after a lesson auto-collapsed
+// narration only), this click reveals EVERYTHING -- matching the pre-#29
+// behavior existing tests rely on (one click after Play reveals narration).
+// If nothing is hidden, this click fully collapses down to just the
+// play-controls row (#29). A second "reveal" click from there always
+// clears both classes together, so it never gets stuck between states.
 function wireCollapseButton() {
   const modal = document.querySelector('.gt-lesson-modal');
   const btn = modal?.querySelector('.gt-lesson-modal__collapse-btn');
   if (!btn) return;
   btn.addEventListener('click', () => {
-    const collapsed = modal.classList.toggle('is-collapsed');
+    const anyHidden = modal.classList.contains('is-collapsed') || modal.classList.contains('is-fully-collapsed');
+    const collapsed = !anyHidden;
+    modal.classList.toggle('is-collapsed', collapsed);
+    modal.classList.toggle('is-fully-collapsed', collapsed);
     btn.setAttribute('aria-pressed', String(collapsed));
     btn.textContent = collapsed ? '▼ Expand' : '▲ Collapse';
   });
@@ -204,6 +225,7 @@ function wireNarrationMuteButton() {
   };
   btn.addEventListener('click', () => {
     narrationMuted = !narrationMuted;
+    writePersistedBoolean(NARRATION_MUTED_STORAGE_KEY, narrationMuted);
     sync();
     if (narrationMuted && 'speechSynthesis' in window) window.speechSynthesis.cancel();
   });
@@ -306,15 +328,17 @@ const CURRENT_LESSON_STORAGE_KEY = 'gt-current-lesson';
 // code path.
 const CURRENT_VIEW_LESSON = {
   id: '__current-view__',
-  modalControls: ['tempo', 'timeSignature'],
+  modalControls: ['tempo', 'timeSignature', 'notesPerString'],
   async run({ fretboard, getNoteDelayMs, getNotesPerString, getDirection, getTimeSignature }) {
     await fretboard.playScaleDemo(getNoteDelayMs, getNotesPerString, getDirection, getTimeSignature);
   },
 };
 
+const LOOP_STORAGE_KEY = 'gt-loop';
+
 export function createLessonPlayer({ fretboard, diatonicChords, lessons, links = [], selectEl, pageTitleEl, pageSubtitleEl }) {
   let playing = false;
-  let looping = false;
+  let looping = readPersistedBoolean(LOOP_STORAGE_KEY, false);
   let noteDelayMs = 650; // slowed down via the modal's tempo slider, for ear training
   let chordDelayMs = 1100; // matches the modal's chord-delay slider's HTML default
   let currentLessonId = null; // so the modal's Play/Loop buttons know what to run again
@@ -361,6 +385,7 @@ export function createLessonPlayer({ fretboard, diatonicChords, lessons, links =
   function stopLesson() {
     if (!playing) return;
     looping = false;
+    writePersistedBoolean(LOOP_STORAGE_KEY, looping);
     setLoopButtonState();
     runGeneration++;
     fretboard.stopPlayback();
@@ -472,18 +497,15 @@ export function createLessonPlayer({ fretboard, diatonicChords, lessons, links =
     await currentRunPromise;
   }
 
-  // Some browsers restore a <select>'s last-chosen value across a reload
-  // (form/bfcache restore), independent of which <option> has `selected` in
-  // the HTML -- force it back to the declared default (3) on every load so
-  // a leftover value from a previous session/test never wins.
+  // Notes/string's value itself is restored by index.html's persistSelect()
+  // call, before this even runs -- just wire the re-render here. The
+  // neck's own scale view is also capped to notesPerString per string
+  // (gt-fretboard.js#_renderDots) -- re-render immediately on change so
+  // that's visible the instant you touch the select, not just the next
+  // time something else happens to redraw (starting a lesson, changing
+  // Key, etc).
   const npsSelect = document.querySelector('.gt-lesson-modal__nps-select');
   if (npsSelect) {
-    npsSelect.value = '3';
-    // The neck's own scale view is also capped to notesPerString per string
-    // (gt-fretboard.js#_renderDots) -- re-render immediately on change so
-    // that's visible the instant you touch the select, not just the next
-    // time something else happens to redraw (starting a lesson, changing
-    // Key, etc).
     npsSelect.addEventListener('change', () => fretboard.render());
   }
 
@@ -514,23 +536,32 @@ export function createLessonPlayer({ fretboard, diatonicChords, lessons, links =
     onStop: () => stopLesson(),
     onToggleLoop: () => {
       looping = !looping;
+      writePersistedBoolean(LOOP_STORAGE_KEY, looping);
       setLoopButtonState();
       if (looping && !playing) runLesson(currentLessonId || CURRENT_VIEW_LESSON.id);
     },
     onDismiss: () => {
       looping = false;
+      writePersistedBoolean(LOOP_STORAGE_KEY, looping);
       setLoopButtonState();
       lastSection?.classList.remove(HIGHLIGHT_CLASS);
     },
   });
   syncTransportButtons();
+  setLoopButtonState(); // reflects a restored Loop preference immediately, not just after the next toggle
 
   // Resume whichever real lesson was running the last time this tab
   // loaded (see runLesson's persistence above) -- most useful right after
-  // a page reload mid-development, but works the same for any reload.
+  // a page reload mid-development, but works the same for any reload. A
+  // brand new session (nothing persisted yet) defaults to the Chords
+  // lesson -- harmonizing the whole key is the entry-level starting point
+  // for teaching chords, not the plain scale view.
   {
-    let resumeId = null;
-    try { resumeId = sessionStorage.getItem(CURRENT_LESSON_STORAGE_KEY); } catch { /* private browsing, etc. */ }
+    let resumeId = 'chords';
+    try {
+      const stored = sessionStorage.getItem(CURRENT_LESSON_STORAGE_KEY);
+      if (stored) resumeId = stored;
+    } catch { /* private browsing, etc. */ }
     if (resumeId && lessons.some((l) => l.id === resumeId)) {
       selectEl.value = resumeId;
       pendingLessonId = resumeId;

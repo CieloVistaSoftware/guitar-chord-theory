@@ -9,8 +9,8 @@
  * a function(fretboard) => [start, end] for lessons whose relevant frets
  * depend on the currently selected key.
  */
-import { buildChordShapeEventDetail, playChordAudio } from './chord-shape-builder.js';
-import { noteNameToPitchClass, modeInfo, harmonizeMajorScale } from './theory.js';
+import { buildChordShapeEventDetail, buildFormulaChordPositions, playChordAudio, playFormulaChordAudio } from './chord-shape-builder.js';
+import { noteNameToPitchClass, modeInfo, harmonizeMajorScale, CHORD_FORMULAS } from './theory.js';
 
 function wait(ms) {
   return new Promise((resolve) => setTimeout(resolve, ms));
@@ -24,19 +24,39 @@ export function buildLessons({ diatonicChords }) {
       blurb: 'A chord needs at least 3 notes. A major chord is spelled 1 – 3 – 5.',
       sectionId: 'what-is-a-chord',
       focusFrets: [0, 4],
-      modalControls: ['tempo'],
+      // No notesPerString here on purpose -- this lesson shows one chord
+      // shape, not a scale walk, so that control would do nothing. chordType
+      // (the Chord type select, see index.html) drives which CHORD_FORMULAS
+      // entry gets built below -- major/minor/diminished/augmented/sus, or
+      // any 7th/9th/13th "color", not just the fixed major triad this
+      // lesson used to always show.
+      modalControls: ['tempo', 'chordType'],
       async run({ fretboard, showModal, getNoteDelayMs }) {
         await showModal(document.getElementById('what-is-a-chord'));
 
-        const chord = diatonicChords.getChord(1); // the I chord -- C major in the key of C
-        if (!chord) return;
-        const detail = buildChordShapeEventDetail(chord, false);
-        fretboard.showChordShape(detail.name, detail.positionsByInversion, detail.inversionSummary, detail.showNoteNames);
+        const rootName = fretboard.rootNote;
+        const rootPc = noteNameToPitchClass(rootName);
+        // Honors the Starting string control -- the chord's root lands on
+        // that string (or the next one up that actually sounds it), the
+        // same "search from here, never below" convention the scale-walk's
+        // Starting string uses (see gt-fretboard.js#_currentStartingStringIndex).
+        const startString = Number(document.querySelector('.gt-starting-string-select')?.value ?? 0);
+        const chordTypeSelect = document.querySelector('.gt-chord-type-select');
+        const formulaEntry = CHORD_FORMULAS.find((f) => f.name === chordTypeSelect?.value) || CHORD_FORMULAS[0];
+
+        const positions = buildFormulaChordPositions(rootPc, rootName, formulaEntry, false, startString);
+        if (!positions.length) return;
+        const chordName = `${rootName}${formulaEntry.suffix}`;
+        // rootOnly:true -- this isn't a harmonizeMajorScale() diatonic
+        // triad, so there's no 1st/2nd inversion or scale-degree picker for
+        // it, just the one root-position voicing (see showChordShape).
+        fretboard.showChordShape(chordName, { root: positions, first: positions, second: positions }, null, false, undefined, true);
+
         // The Note Speed slider controls this strum too -- otherwise it's a
         // control visibly on screen that does nothing for this lesson.
         const strumSeconds = getNoteDelayMs() / 1000;
-        playChordAudio(chord, 'root', (midi) => fretboard.pulseNote(midi), strumSeconds);
-        await wait(Math.max(3200, strumSeconds * 1000 * 5 + 1000));
+        playFormulaChordAudio(positions, (midi) => fretboard.pulseNote(midi), strumSeconds);
+        await wait(Math.max(3200, strumSeconds * 1000 * positions.length + 1000));
       },
     },
     {
@@ -54,7 +74,7 @@ export function buildLessons({ diatonicChords }) {
         const rootFret = fretboard.rootFretOnSixthString();
         return [rootFret, rootFret + 12];
       },
-      modalControls: ['tempo', 'timeSignature'],
+      modalControls: ['tempo', 'timeSignature', 'notesPerString'],
       async run({ fretboard, showModal, getNoteDelayMs, getNotesPerString, getDirection, getTimeSignature }) {
         await showModal(document.getElementById('scale-lesson'));
         // Pass every getter itself, not a snapshot -- so dragging the tempo
@@ -70,20 +90,23 @@ export function buildLessons({ diatonicChords }) {
       blurb: 'All seven diatonic chords in the key, strummed and highlighted in order.',
       sectionId: 'chords-lesson',
       focusFrets: [0, 4],
-      modalControls: ['chordDelay'],
+      modalControls: ['chordDelay', 'notesPerString'],
       async run({ fretboard, diatonicChords, highlightSection, showModal, getChordDelayMs }) {
         const section = document.getElementById('chords-lesson');
         await highlightSection(section); // reveals the actual chords grid, inline and scrolls to it
         // narration + gives Loop access to Replay/Loop/tempo -- skip the
         // modal's own scroll-to-fretboard-card: this lesson stays inside the
-        // grid highlightSection just scrolled to, and never touches the
-        // fretboard itself (see diatonicChords.playAll below).
+        // grid highlightSection just scrolled to (updateFretboard:true
+        // below still keeps the big fretboard's own shape in sync as each
+        // chord plays, just without re-scrolling the page to it).
         await showModal(section, { scrollToFretboard: false });
 
         // The getter itself, not a snapshot -- so dragging the chord-delay
         // slider mid-playthrough changes the very next chord, not just the
         // next full run (same live pattern as the scale lesson's tempo).
-        await diatonicChords.playAll(getChordDelayMs);
+        // updateFretboard:true -- the big fretboard shows each chord's own
+        // playable shape as it plays, not just the small cards in the grid.
+        await diatonicChords.playAll(getChordDelayMs, { updateFretboard: true });
 
         // Looping this lesson should honor all three inversions, not just
         // repeat Root Position forever -- advance to the next one so the
@@ -104,7 +127,7 @@ export function buildLessons({ diatonicChords }) {
       // Beat counter next to it (both data-control="timeSignature") are
       // visible here -- the mode's chord below re-strikes on beat 1 of
       // every measure, so seeing/changing the time signature matters.
-      modalControls: ['tempo', 'mode', 'timeSignature'],
+      modalControls: ['tempo', 'mode', 'timeSignature', 'notesPerString'],
       async run({ fretboard, showModal, getNoteDelayMs, getNotesPerString, getDirection, getTimeSignature }) {
         await showModal(document.getElementById('modes-lesson'));
         fretboard.clearFocus();

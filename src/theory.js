@@ -36,6 +36,39 @@ export function noteNameToPitchClass(name) {
   return i;
 }
 
+// Letter-stepping data for spellFormulaNotes() -- the natural (no-accidental)
+// pitch class of each of the 7 letter names, used to figure out which LETTER
+// a formula's scale degree implies before working out what accidental (if
+// any) is needed to actually reach the formula's semitone target.
+const NATURAL_LETTERS = ['C', 'D', 'E', 'F', 'G', 'A', 'B'];
+const NATURAL_LETTER_PC = { C: 0, D: 2, E: 4, F: 5, G: 7, A: 9, B: 11 };
+const ACCIDENTAL_SYMBOL = { '-2': '𝄫', '-1': '♭', 0: '', 1: '♯', 2: '𝄪' };
+
+/**
+ * Spells a chord formula's notes with real letter names + accidentals (e.g.
+ * a minor formula's "♭3" on root C as "E♭") instead of pitchClassName()'s
+ * always-sharp enharmonic ("D#") -- follows the formula's own numeral
+ * (compound 9ths/13ths collapse to the same letter as 2/6) and accidental
+ * prefix to pick the correct LETTER first, then derives whatever accidental
+ * lands on the formula's actual semitone offset from rootPc/rootName.
+ * rootName's first character must be the natural letter (e.g. "C" from
+ * both "C" and "C#") -- true for every name in NOTE_NAMES.
+ */
+export function spellFormulaNotes(rootPc, rootName, formulaEntry) {
+  const rootLetterIndex = NATURAL_LETTERS.indexOf(rootName[0]);
+  return formulaEntry.formula.map((symbol, i) => {
+    const match = symbol.match(/^(♭|♯|𝄫|𝄪)?(\d+)$/);
+    const numeral = Number(match[2]);
+    const baseDegree = ((numeral - 1) % 7) + 1; // 9 -> same letter as 2, 13 -> same letter as 6, ...
+    const letter = NATURAL_LETTERS[(rootLetterIndex + baseDegree - 1) % 7];
+    const naturalPc = NATURAL_LETTER_PC[letter];
+    const targetPc = (rootPc + formulaEntry.semitones[i]) % 12;
+    let diff = ((targetPc - naturalPc) % 12 + 12) % 12;
+    if (diff > 6) diff -= 12;
+    return `${letter}${ACCIDENTAL_SYMBOL[diff] ?? ''}`;
+  });
+}
+
 // Semitone offsets from the root for each named chord formula, plus the
 // chord-symbol suffix a guitarist would actually read on a published lead
 // sheet (root name + suffix, e.g. root "C" + suffix "m7" -> "Cm7").
@@ -94,28 +127,46 @@ export function fretForPitchClass(openPc, targetPc) {
 
 const SCALE_STEP_SEMITONES = MAJOR_SCALE_INTERVALS.map((iv) => iv.semitones); // [0,2,4,5,7,9,11]
 
+// How many extra thirds get stacked on top of each degree's root, in scale
+// STEPS (not semitones) -- 0=root, 2=3rd, 4=5th, 6=7th, 8=9th, 12=13th.
+// '13th' skips step 10 (the 11th) -- it clashes with the 3rd, the same
+// convention CHORD_FORMULAS' own 13th entries already use.
+const EXTENSION_STEPS = {
+  triad: [0, 2, 4],
+  '7th': [0, 2, 4, 6],
+  '9th': [0, 2, 4, 6, 8],
+  '13th': [0, 2, 4, 6, 8, 12],
+};
+
 /**
- * Harmonize a major scale: build a triad on every scale degree by stacking
- * diatonic thirds (the note two scale-steps up, and four scale-steps up),
- * using only notes that belong to the scale -- not a fixed major-3rd/
- * perfect-5th every time. This is what actually produces the mixed
- * major/minor/diminished quality of the diatonic I-vii chords, not a
+ * Harmonize a major scale: build a chord on every scale degree by stacking
+ * diatonic thirds, using only notes that belong to the scale -- not a fixed
+ * major-3rd/perfect-5th every time. This is what actually produces the
+ * mixed major/minor/diminished quality of the diatonic I-vii triads, not a
  * lookup table of pre-known answers.
+ *
+ * `extension` ('triad' | '7th' | '9th' | '13th', default 'triad') stacks
+ * that many more diatonic thirds on top -- e.g. harmonizing the C major
+ * scale in 7ths gives Cmaj7, Dm7, Em7, Fmaj7, G7, Am7, Bm7♭5, the standard
+ * textbook "harmonize the scale in 7ths" result, entirely from scale-step
+ * math, not a hand-written answer per degree. `quality` (major/minor/
+ * diminished, used for card coloring etc.) always reflects the underlying
+ * TRIAD regardless of extension -- a degree's color doesn't change just
+ * because it's being shown as a 7th/9th/13th chord.
  */
-export function harmonizeMajorScale(rootPc) {
+export function harmonizeMajorScale(rootPc, extension = 'triad') {
+  const steps = EXTENSION_STEPS[extension] ?? EXTENSION_STEPS.triad;
+
   return SCALE_STEP_SEMITONES.map((offset, i) => {
     const degreePc = (rootPc + offset) % 12;
 
-    const thirdIdx = (i + 2) % 7;
-    const thirdOctaveBump = i + 2 >= 7 ? 12 : 0;
-    const thirdPc = (rootPc + SCALE_STEP_SEMITONES[thirdIdx] + thirdOctaveBump) % 12;
-
-    const fifthIdx = (i + 4) % 7;
-    const fifthOctaveBump = i + 4 >= 7 ? 12 : 0;
-    const fifthPc = (rootPc + SCALE_STEP_SEMITONES[fifthIdx] + fifthOctaveBump) % 12;
-
-    const thirdSemitones = ((thirdPc - degreePc) % 12 + 12) % 12;
-    const fifthSemitones = ((fifthPc - degreePc) % 12 + 12) % 12;
+    const tonePcs = steps.map((n) => {
+      const idx = (i + n) % 7;
+      const octaveBump = Math.floor((i + n) / 7) * 12;
+      return (rootPc + SCALE_STEP_SEMITONES[idx] + octaveBump) % 12;
+    });
+    const semitonesFromDegree = tonePcs.map((pc) => ((pc - degreePc) % 12 + 12) % 12);
+    const [, thirdSemitones, fifthSemitones] = semitonesFromDegree;
 
     let quality;
     if (thirdSemitones === 4 && fifthSemitones === 7) quality = 'major';
@@ -128,13 +179,36 @@ export function harmonizeMajorScale(rootPc) {
       : quality === 'minor' ? `${numeral}−`
       : `${numeral}°`;
 
+    const rootName = pitchClassName(degreePc);
+
+    // The 4-note (7th-chord) quality always matches exactly one of
+    // CHORD_FORMULAS' 4 shapes a major scale's own diatonic harmony can
+    // produce (Δ7 / 7 / m7 / ø7) -- used as the suffix base for 7th/9th/
+    // 13th chordNames, since a 9th/13th built on some degrees (e.g. the
+    // vii, half-diminished) has no single named CHORD_FORMULAS entry of
+    // its own to look up directly.
+    let chordName = `${rootName}${quality === 'minor' ? 'm' : quality === 'diminished' ? 'dim' : ''}`;
+    if (extension !== 'triad') {
+      const seventhSemitones = semitonesFromDegree[3] % 12;
+      const seventhMatch = CHORD_FORMULAS.find((f) => f.semitones.length === 4
+        && f.semitones[1] % 12 === thirdSemitones && f.semitones[2] % 12 === fifthSemitones
+        && f.semitones[3] % 12 === seventhSemitones);
+      // Every CHORD_FORMULAS 7th-chord suffix ends in the character '7'
+      // (Δ7 / 7 / m7 / ø7) -- a 9th/13th chord REPLACES that trailing 7
+      // with 9/13 (jazz notation: "maj7 + a 9th" is written maj9, not
+      // "maj79"), it doesn't append after it.
+      const seventhSuffix = seventhMatch?.suffix ?? '7';
+      const suffix = extension === '7th' ? seventhSuffix : seventhSuffix.replace(/7$/, extension === '9th' ? '9' : '13');
+      chordName = `${rootName}${suffix}`;
+    }
+
     return {
       degree: i + 1,
       quality,
       nashville,
-      rootName: pitchClassName(degreePc),
-      chordName: `${pitchClassName(degreePc)}${quality === 'minor' ? 'm' : quality === 'diminished' ? 'dim' : ''}`,
-      notes: [degreePc, thirdPc, fifthPc].map(pitchClassName),
+      rootName,
+      chordName,
+      notes: tonePcs.map(pitchClassName),
     };
   });
 }

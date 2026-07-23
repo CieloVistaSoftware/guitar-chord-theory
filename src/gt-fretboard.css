@@ -260,10 +260,22 @@ gt-fretboard {
   font-size: 0.8rem;
 }
 
-/* Collapsed: hides only the narration text, leaving the drag/collapse row
-   and every control (tempo, notes-per-string, chord-delay, Replay/Loop/
-   Mute/Dismiss) visible and usable. */
+/* Auto-collapsed (showModal()/Dismiss, every time a lesson starts): hides
+   only the narration text, leaving the drag/collapse row and every control
+   (tempo, notes-per-string, chord-delay, Replay/Loop/Mute/Dismiss) visible
+   and usable -- these drive the fretboard itself and must stay reachable
+   without the reader ever touching the collapse button. */
 .gt-lesson-modal.is-collapsed .gt-lesson-modal__content {
+  display: none;
+}
+
+/* Issue #29 -- fully collapsed (an explicit click on the collapse button,
+   never set automatically): hides everything except the drag/collapse row
+   and the bottom play-controls row (Play/Stop/Loop/Mute/Mute
+   Narration/Dismiss). */
+.gt-lesson-modal.is-fully-collapsed .gt-lesson-modal__content,
+.gt-lesson-modal.is-fully-collapsed .gt-lesson-modal__header-controls,
+.gt-lesson-modal.is-fully-collapsed .gt-lesson-modal__tempo {
   display: none;
 }
 
@@ -337,6 +349,20 @@ gt-fretboard {
 
 .gt-beat-counter strong {
   color: var(--text-primary, #f9fafb);
+}
+
+/* Sits inline right after the Mode select -- the actual chord name that
+   mode's own tonic triad produces in the current key (e.g. Phrygian in C
+   -> "Edim"), kept in sync with both the Mode and Key selects (see
+   index.html's updateModeChordName()). */
+.gt-mode-chord-name {
+  display: inline-flex;
+  align-items: center;
+  padding: 0.15rem 0.6rem;
+  border: 1px solid var(--border-color, #4b5563);
+  border-radius: 999px;
+  color: var(--text-primary, #f9fafb);
+  font-weight: 600;
 }
 
 /* Same touch-friendly resize grip treatment as .gt-fretboard-card's own
@@ -449,22 +475,17 @@ gt-fretboard {
   color: var(--text-secondary, #9ca3af);
 }
 
-.gt-chord-picker {
-  color-scheme: dark;
+/* A plain readout of the current chord's Nashville number + name -- not a
+   picker (see #30-adjacent feedback: switching chords here duplicated what
+   clicking a chord card already does, so this is now display-only). */
+.gt-chord-picker-value {
   border: 1px solid var(--border-color, #4b5563);
   border-radius: 6px;
   background: var(--bg-primary, #111827);
   color: var(--text-primary, #f9fafb);
   padding: 0.3rem 0.5rem;
-  min-height: 2.75rem; /* 44px touch target */
   font-size: 0.9rem;
   font-weight: 600;
-  cursor: pointer;
-}
-
-.gt-chord-picker option {
-  background: var(--bg-primary, #111827);
-  color: var(--text-primary, #f9fafb);
 }
 
 .gt-mode-btn--back {

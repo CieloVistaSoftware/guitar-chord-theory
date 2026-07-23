@@ -10,10 +10,17 @@
  * conventions (composition over inheritance, no Shadow DOM).
  */
 import { STANDARD_TUNING, STANDARD_TUNING_NAMES, STANDARD_TUNING_MIDI, MAJOR_SCALE_INTERVALS, intervalAt, fretForPitchClass, noteNameToPitchClass, pitchClassName, harmonizeMajorScale } from './theory.js';
-import { playMidi, setAudioEnabled } from './audio.js';
+import { playMidi, setAudioEnabled, isMuted } from './audio.js';
 import { buildChordShapeEventDetail, playChordAudio } from './chord-shape-builder.js';
+import { readPersistedBoolean } from './gt-persist.js';
+import { NARRATION_MUTED_STORAGE_KEY } from './lesson-player.js';
 
 const PLUCK_FLASH_MS = 380; // how long a note's dot glows after it's plucked
+
+// Spoken beat numbers for playScaleDemo's pre-demo count-off (see
+// _countOff) -- max time signature option in this app is 7 (see index.html's
+// Time signature select), so 7 words covers every beatsPerMeasure value.
+const COUNT_OFF_WORDS = ['one', 'two', 'three', 'four', 'five', 'six', 'seven'];
 
 // STANDARD_TUNING's own index order (E,A,D,G,B,E -- low string to high) --
 // index 4 is the B string, the "2nd string" in standard guitar numbering
@@ -131,9 +138,18 @@ export class GTFretboard extends HTMLElement {
    * (bass-note-first) -- shown as each inversion button's subtitle.
    * `showNoteNames` says whether the neck itself is currently showing real
    * note names or intervals, so the subtitles can show the opposite.
+   *
+   * `rootOnly` -- for a chord built from an arbitrary CHORD_FORMULAS entry
+   * (see chord-shape-builder.js#buildFormulaChordPositions), not a
+   * harmonizeMajorScale() diatonic triad: there's no 1st/2nd inversion (or
+   * scale-degree picker) for it, just the one root-position voicing, so the
+   * inversion buttons and "Showing [degree]" picker don't apply -- forces
+   * `this._inversion` back to 'root' too, in case a previous triad view left
+   * it on 'first'/'second'.
    */
-  showChordShape(name, positionsByInversion, inversionSummary, showNoteNames, degree) {
-    this._chord = { name, positionsByInversion, inversionSummary, showNoteNames, degree };
+  showChordShape(name, positionsByInversion, inversionSummary, showNoteNames, degree, rootOnly = false) {
+    this._chord = { name, positionsByInversion, inversionSummary, showNoteNames, degree, rootOnly };
+    if (rootOnly) this._inversion = 'root';
     this.render();
   }
 
@@ -208,6 +224,20 @@ export class GTFretboard extends HTMLElement {
   _walkAnchorFret() {
     const anchorPc = this._walkAnchorPc ?? noteNameToPitchClass(this.rootNote);
     return fretForPitchClass(STANDARD_TUNING[this._currentStartingStringIndex()], anchorPc);
+  }
+
+  // Whatever's currently chosen in the Time signature select -- read live
+  // off the DOM, same pattern as _currentNotesPerString()/
+  // _currentStartingStringIndex(). Used by _scaleWalkPositions to render
+  // a dot for every note playScaleDemo will actually play, including the
+  // notes added purely to finish the last measure (see both places'
+  // "measure-completion padding" comments -- kept independent on purpose,
+  // not sharing one array, since rendering counts physical positions
+  // while playback counts distinct pitches heard).
+  _currentBeatsPerMeasure() {
+    const select = document.querySelector('.gt-time-signature-select');
+    const n = select ? Number(select.value) : 4;
+    return n > 0 ? n : 4;
   }
 
   /**
@@ -404,6 +434,34 @@ export class GTFretboard extends HTMLElement {
   }
 
   /**
+   * Spoken count-off ("one", "two", ... through however many beats the
+   * current time signature has) for one full measure right before
+   * playScaleDemo's very first note -- musician's count-in, so the listener
+   * has heard a whole measure at tempo before the downbeat lands, instead of
+   * the first note just starting cold. That first note is always beat 1 of
+   * the first real measure, so in the Modes lesson (where onBeatOne also
+   * strikes that mode's chord on beat 1) the chord and the first melody note
+   * both start together right after the count-off's own beat 1-through-last.
+   * Ticks at the SAME tempo (delayMs) the demo itself is about to play at --
+   * a count-off only means something if it previews the actual speed.
+   * Respects the same Narration Muted toggle as a lesson's own narration
+   * (both are spoken words -- muting one is expected to mute the other) and
+   * the general audio mute; silently skipped, not silently delayed, when
+   * either is on, so Play still starts immediately.
+   */
+  async _countOff(delayMs, beatsPerMeasure) {
+    if (!('speechSynthesis' in window)) return;
+    if (isMuted()) return;
+    if (readPersistedBoolean(NARRATION_MUTED_STORAGE_KEY, navigator.webdriver === true)) return;
+    const beats = typeof beatsPerMeasure === 'function' ? beatsPerMeasure() : beatsPerMeasure;
+    const ms = typeof delayMs === 'function' ? delayMs() : delayMs;
+    for (let beat = 1; beat <= beats; beat++) {
+      window.speechSynthesis.speak(new SpeechSynthesisUtterance(COUNT_OFF_WORDS[beat - 1] ?? String(beat)));
+      await new Promise((resolve) => setTimeout(resolve, ms));
+    }
+  }
+
+  /**
    * Demonstrate this fretboard's major scale, always starting degree 1 on
    * the 6th string (low E) -- the standard starting position for a movable
    * pattern -- even if that's the open string.
@@ -456,6 +514,10 @@ export class GTFretboard extends HTMLElement {
     // call, or by an explicit stopPlayback()) the instant this no longer
     // matches this._playbackGen, checked before every note below.
     const myGen = ++this._playbackGen;
+
+    await this._countOff(delayMs, beatsPerMeasure);
+    if (this._playbackGen !== myGen) return; // Stop was clicked during the count-off -- abandon before playing anything
+
     const rootPc = noteNameToPitchClass(this.rootNote);
     const frets = this.fretCount;
     // This legacy one-octave branch below always starts on the 6th string
@@ -628,21 +690,24 @@ export class GTFretboard extends HTMLElement {
     // real note names, the subtitle shows the intervals instead.
     const summaryKey = this._chord?.showNoteNames ? 'intervals' : 'notes';
 
-    // Every diatonic chord in the CURRENT key, for the "Showing X" picker --
-    // lets the learner switch straight to ii/iii/IV/V/vi/vii° on this same
-    // root without backing all the way out to the full scale first.
+    // Every diatonic chord in the CURRENT key -- used to look up the
+    // current chord's own Nashville number for the "Showing X" readout.
     const diatonicOptions = this._chord ? harmonizeMajorScale(rootPc) : [];
+    const currentOption = diatonicOptions.find((c) => c.chordName === this._chord?.name);
 
+    // rootOnly chords (see showChordShape) aren't a harmonizeMajorScale()
+    // diatonic degree -- no Nashville number to show (just the chord's own
+    // name) and no inversion buttons (just the one root-position voicing),
+    // but the "back to the full scale" escape stays either way.
     const controls = this._chord ? `
       <div class="gt-fretboard__chord-banner">
-        Showing
-        <select class="gt-chord-picker">
-          ${diatonicOptions.map((c) => `
-            <option value="${c.degree}" ${c.chordName === this._chord.name ? 'selected' : ''}>${c.nashville} ${c.chordName}</option>
-          `).join('')}
-        </select>
+        ${this._chord.rootOnly ? `<span class="gt-fretboard__chord-name">${this._chord.name}</span>` : `
+          Showing
+          <span class="gt-chord-picker-value">${currentOption ? `${currentOption.nashville} ${currentOption.chordName}` : this._chord.name}</span>
+        `}
         <button type="button" class="gt-mode-btn gt-mode-btn--back">← back to the full scale</button>
       </div>
+      ${this._chord.rootOnly ? '' : `
       <div class="gt-fretboard__mode-switch gt-fretboard__mode-switch--inversions">
         ${INVERSIONS.map((inv) => `
           <button type="button" class="gt-mode-btn ${this._inversion === inv.key ? 'is-active' : ''}" data-inversion="${inv.key}">
@@ -650,7 +715,7 @@ export class GTFretboard extends HTMLElement {
             <span class="gt-mode-btn__subtitle">${this._chord.inversionSummary[inv.key][summaryKey].join(' – ')}</span>
           </button>
         `).join('')}
-      </div>
+      </div>`}
     ` : '';
 
     this.innerHTML = `
@@ -670,18 +735,6 @@ export class GTFretboard extends HTMLElement {
     });
     const backBtn = this.querySelector('.gt-fretboard__chord-banner .gt-mode-btn--back');
     if (backBtn) backBtn.addEventListener('click', () => this.clearChord());
-    const chordPicker = this.querySelector('.gt-chord-picker');
-    if (chordPicker) {
-      chordPicker.addEventListener('change', () => {
-        const degree = Number(chordPicker.value);
-        const c = diatonicOptions.find((ch) => ch.degree === degree);
-        if (!c) return;
-        const detail = buildChordShapeEventDetail(c, this._chord.showNoteNames);
-        this.showChordShape(detail.name, detail.positionsByInversion, detail.inversionSummary, detail.showNoteNames, detail.degree);
-        setAudioEnabled(true);
-        playChordAudio(c, this._inversion, (midi) => this.pulseNote(midi));
-      });
-    }
 
     this.querySelectorAll('.gt-dot').forEach((dot) => {
       dot.addEventListener('click', () => {
@@ -927,6 +980,40 @@ export class GTFretboard extends HTMLElement {
         }
       }
     }
+
+    // Same measure-completion padding as playScaleDemo -- a dot for every
+    // note the demo will actually play, including the notes added purely
+    // to finish the last measure (never wrap around to repeat an earlier
+    // position; keep going further up the high E string instead). Counts
+    // distinct PITCHES (like playScaleDemo's own dedupedSequence), not
+    // physical positions, since that's what "how many more notes until a
+    // full measure" actually means -- two different strings landing on
+    // the same pitch only count once.
+    {
+      const midiOfKey = (key) => {
+        const [s, f] = key.split('-').map(Number);
+        return STANDARD_TUNING_MIDI[s] + f;
+      };
+      const distinctMidis = new Set(Array.from(extended, midiOfKey));
+      const beats = this._currentBeatsPerMeasure();
+      const notesNeeded = distinctMidis.size ? (beats - (distinctMidis.size % beats)) % beats : 0;
+      if (notesNeeded > 0) {
+        const highString = 5; // high E -- where an 'up' walk naturally ends
+        const openPc = STANDARD_TUNING[highString];
+        const openMidi = STANDARD_TUNING_MIDI[highString];
+        let highestMidi = Math.max(...distinctMidis);
+        let added = 0;
+        for (let f = 1; f <= frets && added < notesNeeded; f++) {
+          const midi = openMidi + f;
+          if (midi <= highestMidi) continue;
+          if (!intervalAt(rootPc, openPc, f)) continue;
+          extended.add(`${highString}-${f}`);
+          highestMidi = midi;
+          added++;
+        }
+      }
+    }
+
     return { shown, extended };
   }
 

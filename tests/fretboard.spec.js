@@ -80,6 +80,21 @@ test('changing Key while a chord shape is shown keeps showing a chord shape', as
   await expect(page.locator('.gt-fretboard__chord-banner')).toBeVisible();
 });
 
+// Issue #31 -- the "Showing X" control above the fretboard used to be a real
+// <select class="gt-chord-picker"> letting you jump to any diatonic chord in
+// the current key -- redundant with clicking a chord card in the grid below.
+// Now it's a plain, non-interactive readout of just the current chord.
+test('the "Showing X" chord readout is plain text, not a dropdown', async ({ page }) => {
+  await page.locator('.gt-lesson-select').selectOption('chords');
+  await page.locator('.gt-lesson-modal__play').click();
+  await page.locator('.gt-diatonic__chord').first().click();
+
+  const banner = page.locator('.gt-fretboard__chord-banner');
+  await expect(banner).toBeVisible({ timeout: 8000 });
+  await expect(banner.locator('select')).toHaveCount(0);
+  await expect(banner.locator('.gt-chord-picker-value')).toHaveText('1 C');
+});
+
 // Fret-position inlay markers (3,5,7,9,12...) are on by default and can be
 // toggled off/back on from the header.
 test('the fret-markers toggle shows and hides the inlay-dot markers', async ({ page }) => {
@@ -136,4 +151,85 @@ test('the 2nd string (B) always shows one extra resolving-root note', async ({ p
   );
   expect(bStringDots.map((d) => d.tone)).toEqual(['5', '6', '7', '1']);
   expect(bStringDots[3].fret).toBe(13);
+});
+
+// Issue #28 -- showModal() clones a lesson's .gt-lesson-copy (id attributes
+// and all) into the fretboard modal while that lesson is showing, so
+// #key-chords-heading / #key-scale-heading / #key-scale-copy each briefly
+// exist TWICE in the DOM (the original section's, plus the modal's clone).
+// applyKey() previously used document.getElementById(), which only patches
+// one of the two -- whichever the browser returns first -- leaving the
+// other stuck on the old key. Covers both lessons that hit this (Chords,
+// major-scale); the fix (querySelectorAll instead of getElementById) has to
+// update every matching element, not just whichever one already-existing
+// tests like #10 above happen to see before any lesson has cloned anything.
+test('changing Key updates every #key-chords-heading, including the modal clone made by the Chords lesson', async ({ page }) => {
+  await page.locator('.gt-lesson-select').selectOption('chords');
+  await page.locator('.gt-lesson-modal__play').click();
+  await expect(page.locator('.gt-diatonic__chord').first()).toBeVisible({ timeout: 8000 });
+
+  // The clone only exists once showModal() has run -- confirm the
+  // duplicate-id setup this test actually depends on is really in place.
+  await expect.poll(() => page.locator('#key-chords-heading').count()).toBe(2);
+
+  await page.locator('#key-select').selectOption('D');
+
+  const headings = await page.locator('#key-chords-heading').allTextContents();
+  expect(headings).toEqual(['D', 'D']);
+});
+
+test('changing Key updates every #key-scale-heading/#key-scale-copy, including the modal clone made by the major-scale lesson', async ({ page }) => {
+  await page.locator('.gt-lesson-select').selectOption('major-scale');
+  await page.locator('.gt-lesson-modal__play').click();
+  await expect.poll(() => page.locator('#key-scale-heading').count()).toBe(2);
+  await expect.poll(() => page.locator('#key-scale-copy').count()).toBe(2);
+
+  await page.locator('#key-select').selectOption('A');
+
+  expect(await page.locator('#key-scale-heading').allTextContents()).toEqual(['A', 'A']);
+  expect(await page.locator('#key-scale-copy').allTextContents()).toEqual(['A', 'A']);
+});
+
+// Issue #29 -- collapsing the FretboardController panel previously only hid
+// the lesson narration text (.gt-lesson-modal__content); the header-controls
+// row (Numbers/Key/Notes-per-string/.../Fullscreen) and the tempo/chord-delay/
+// mode/time-signature rows stayed visible, defeating the point of collapsing.
+// Collapsed should show only the handle/collapse row and the bottom
+// play-controls row (Play/Stop/Loop/Mute/Mute Narration/Dismiss).
+test('collapsing the FretboardController panel leaves only the play-controls row visible', async ({ page }) => {
+  const headerControls = page.locator('.gt-lesson-modal__header-controls');
+  // chordDelay (data-control) only shows while a lesson whose own
+  // modalControls includes it is active -- syncModalControls() gates all
+  // four tempo/chordDelay/mode/timeSignature rows per-lesson, independent
+  // of collapse. Play the Chords lesson (modalControls: ['chordDelay', ...])
+  // so there's a real, currently-visible one of these rows to assert against.
+  const chordDelay = page.locator('[data-control="chordDelay"]');
+  const actions = page.locator('.gt-lesson-modal__actions');
+  const collapseBtn = page.locator('.gt-lesson-modal__collapse-btn');
+
+  await page.locator('.gt-lesson-select').selectOption('chords');
+  await page.locator('.gt-lesson-modal__play').click();
+  await expect(page.locator('.gt-diatonic__chord').first()).toBeVisible({ timeout: 8000 });
+
+  // showModal() (run when the lesson starts) always collapses the panel --
+  // expand it first so header-controls/chordDelay are genuinely visible
+  // going into this test's own collapse/expand assertions.
+  await expect(collapseBtn).toHaveText('▼ Expand');
+  await collapseBtn.click();
+
+  await expect(headerControls).toBeVisible();
+  await expect(chordDelay).toBeVisible();
+  await expect(actions).toBeVisible();
+
+  await collapseBtn.click();
+
+  await expect(headerControls).toBeHidden();
+  await expect(chordDelay).toBeHidden();
+  await expect(actions).toBeVisible(); // play controls must stay reachable while collapsed
+
+  await collapseBtn.click();
+
+  await expect(headerControls).toBeVisible();
+  await expect(chordDelay).toBeVisible();
+  await expect(actions).toBeVisible();
 });

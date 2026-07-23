@@ -27,6 +27,14 @@ gt-diatonic-chords {
   font-variant-numeric: tabular-nums;
 }
 
+.gt-diatonic__extension {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.5rem;
+  font-size: 0.85rem;
+  color: var(--text-secondary, #9ca3af);
+}
+
 .gt-diatonic__inversion-badge {
   font-size: 0.8rem;
   font-weight: 600;
@@ -86,8 +94,20 @@ gt-diatonic-chords {
 
 .gt-diatonic {
   display: grid;
-  grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+  grid-template-columns: repeat(4, 1fr);
   gap: 1.5rem;
+}
+
+@media (max-width: 900px) {
+  .gt-diatonic {
+    grid-template-columns: repeat(2, 1fr);
+  }
+}
+
+@media (max-width: 520px) {
+  .gt-diatonic {
+    grid-template-columns: 1fr;
+  }
 }
 
 .gt-diatonic__chord {

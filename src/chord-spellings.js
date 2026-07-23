@@ -7,7 +7,7 @@
  * Pure reference data -- no fretboard, no fingerings, works for all 12 keys
  * since it's built from pitch-class math, not the hand-curated shape charts.
  */
-import { NOTE_NAMES, pitchClassName, harmonizeMajorScale, CHORD_FORMULAS } from './theory.js';
+import { NOTE_NAMES, pitchClassName, harmonizeMajorScale, CHORD_FORMULAS, spellFormulaNotes } from './theory.js';
 import { playChordMidi, setAudioEnabled } from './audio.js';
 
 const QUALITY_COLOR = { major: '#22c55e', minor: '#6366f1', diminished: '#ef4444' };
@@ -28,7 +28,7 @@ export function renderFormulaTable(container, rootPc = 0, rootName = 'C') {
         <div class="cs-formula-row__example">Example (in ${rootName})</div>
       </div>
       ${CHORD_FORMULAS.map((f) => {
-        const names = f.semitones.map((s) => pitchClassName(rootPc + s));
+        const names = spellFormulaNotes(rootPc, rootName, f);
         // Absolute semitone offsets (not wrapped to a pitch class) so the
         // example always plays in ascending pitch order, whatever the root.
         const midiNotes = f.semitones.map((s) => REFERENCE_OCTAVE + rootPc + s);
